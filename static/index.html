@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CEX Board</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --rise: #26a69a;
+      --fall: #ef5350;
+      --even: #90a4ae;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0.35rem 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    nav.tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.75rem 1.5rem 0;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    nav.tabs button {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    nav.tabs button:hover {
+      color: var(--text);
+      background: rgba(61, 139, 255, 0.08);
+    }
+    nav.tabs button.active {
+      color: var(--text);
+      background: var(--surface);
+      border-color: var(--border);
+      border-bottom-color: var(--surface);
+      margin-bottom: -1px;
+      font-weight: 600;
+    }
+    nav.tabs button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    main {
+      padding: 1.25rem 1.5rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .placeholder {
+      padding: 3rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .toolbar button.refresh {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .toolbar button.refresh:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .toolbar .status {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .toolbar .status.error { color: var(--fall); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tbody tr {
+      border-top: 1px solid var(--border);
+    }
+    tbody tr:hover {
+      background: rgba(61, 139, 255, 0.06);
+    }
+    .chg-rise { color: var(--rise); font-weight: 600; }
+    .chg-fall { color: var(--fall); font-weight: 600; }
+    .chg-even { color: var(--even); }
+    .num { font-variant-numeric: tabular-nums; }
+    h2.section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.75rem;
+      color: var(--muted);
+    }
+    .ob-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .ob-toolbar label { font-size: 0.85rem; color: var(--muted); }
+    .ob-toolbar select,
+    .ob-toolbar input[type="number"] {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    .ob-toolbar input[type="number"] {
+      width: 5rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .ob-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+    .ob-meta strong { color: var(--text); }
+    .bid-head { color: var(--rise); }
+    .ask-head { color: var(--fall); }
+    .ob-table-wrap {
+      max-height: min(50vh, 360px);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    table.ob-table { margin-top: 0; }
+    table.ob-table th.ob-bid { background: rgba(38, 166, 154, 0.12); color: var(--rise); }
+    table.ob-table th.ob-ask { background: rgba(239, 83, 80, 0.12); color: var(--fall); }
+    /* 가격 중심 병합 오더북 (매수 ← 가격 → 매도) */
+    table.ob-merged {
+      table-layout: fixed;
+    }
+    table.ob-merged thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      box-shadow: 0 1px 0 var(--border);
+    }
+    table.ob-merged thead th.ob-bid-h {
+      background: rgba(38, 166, 154, 0.14);
+      color: var(--rise);
+      text-align: right;
+    }
+    table.ob-merged thead th.ob-price-h {
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--text);
+      text-align: center;
+      width: 34%;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    table.ob-merged thead th.ob-ask-h {
+      background: rgba(239, 83, 80, 0.14);
+      color: var(--fall);
+      text-align: right;
+    }
+    table.ob-merged tbody td.ob-bid-sz {
+      text-align: right;
+      color: var(--rise);
+      background: linear-gradient(270deg, rgba(38, 166, 154, 0.12) 0%, transparent 72%);
+    }
+    table.ob-merged tbody td.ob-bid-sz:empty::before {
+      content: "—";
+      color: var(--muted);
+      opacity: 0.5;
+    }
+    table.ob-merged tbody td.ob-price-mid {
+      text-align: center;
+      font-weight: 600;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.18);
+      color: var(--text);
+    }
+    table.ob-merged tbody td.ob-ask-sz {
+      text-align: right;
+      color: var(--fall);
+      background: linear-gradient(90deg, rgba(239, 83, 80, 0.12) 0%, transparent 72%);
+    }
+    table.ob-merged tbody td.ob-ask-sz:empty::before {
+      content: "—";
+      color: var(--muted);
+      opacity: 0.5;
+    }
+    table.ob-merged tbody tr.ob-spread-gap td {
+      box-shadow: inset 0 1px 0 rgba(61, 139, 253, 0.35);
+    }
+    .candle-chart-host {
+      width: 100%;
+      height: 440px;
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .candle-raw-details {
+      margin-top: 0.5rem;
+    }
+    .candle-raw-details summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85rem;
+      user-select: none;
+    }
+    .candle-raw-details summary:hover {
+      color: var(--accent);
+    }
+  </style>
+  <script
+    src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"
+    crossorigin="anonymous"
+  ></script>
+</head>
+<body>
+  <header>
+    <h1>CEX Board</h1>
+    <p>localhost:9090 — 거래소별 시세 (추가 예정)</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="거래소">
+    <button type="button" role="tab" data-panel="upbit" class="active" aria-selected="true">업비트</button>
+    <button type="button" role="tab" data-panel="bithumb" aria-selected="false" disabled title="준비 중">빗썸</button>
+    <button type="button" role="tab" data-panel="coinone" aria-selected="false" disabled title="준비 중">코인원</button>
+    <button type="button" role="tab" data-panel="korbit" aria-selected="false" disabled title="준비 중">코빗</button>
+  </nav>
+
+  <main>
+    <section id="panel-upbit" class="panel active" role="tabpanel" aria-label="업비트">
+      <h2 class="section-title">분봉 캔들</h2>
+      <div class="ob-toolbar">
+        <label for="upbit-candle-market">마켓</label>
+        <select id="upbit-candle-market" aria-label="캔들 마켓"></select>
+        <label for="upbit-candle-unit">분 단위</label>
+        <select id="upbit-candle-unit" aria-label="캔들 분 단위"></select>
+        <label for="upbit-candle-count">개수 (1~200)</label>
+        <input
+          type="number"
+          id="upbit-candle-count"
+          min="1"
+          max="200"
+          value="100"
+          aria-label="캔들 개수"
+        />
+        <button type="button" class="refresh" id="btn-upbit-candle-refresh">캔들 조회</button>
+        <span class="status" id="upbit-candle-status"></span>
+      </div>
+      <div id="upbit-candle-wrap">
+        <div id="upbit-candle-chart-host" class="candle-chart-host" aria-label="분봉 차트"></div>
+        <details class="candle-raw-details">
+          <summary>표로 보기 (원본 데이터)</summary>
+          <div id="upbit-candle-table-wrap"></div>
+        </details>
+      </div>
+
+      <h2 class="section-title">호가 오더북</h2>
+      <div class="ob-toolbar">
+        <label for="upbit-ob-market">마켓</label>
+        <select id="upbit-ob-market" aria-label="오더북 마켓"></select>
+        <button type="button" class="refresh" id="btn-upbit-ob-refresh">오더북 새로고침</button>
+        <span class="status" id="upbit-ob-status"></span>
+      </div>
+      <div id="upbit-ob-wrap"></div>
+
+      <h2 class="section-title">현재가 (ticker)</h2>
+      <div class="toolbar">
+        <button type="button" class="refresh" id="btn-upbit-refresh">시세 새로고침</button>
+        <span class="status" id="upbit-status"></span>
+      </div>
+      <div id="upbit-table-wrap"></div>
+    </section>
+
+    <section id="panel-bithumb" class="panel" role="tabpanel" hidden>
+      <div class="placeholder">빗썸 연동은 준비 중입니다.</div>
+    </section>
+    <section id="panel-coinone" class="panel" role="tabpanel" hidden>
+      <div class="placeholder">코인원 연동은 준비 중입니다.</div>
+    </section>
+    <section id="panel-korbit" class="panel" role="tabpanel" hidden>
+      <div class="placeholder">코빗 연동은 준비 중입니다.</div>
+    </section>
+  </main>
+
+  <script>
+    const UPBIT_MARKETS = [
+      "KRW-BTC", "KRW-ETH", "KRW-USDT", "KRW-DOGE", "KRW-XRP", "KRW-ONG",
+    ];
+
+    /** 백엔드 `MINUTE_CANDLE_UNITS` 와 동일 */
+    const MINUTE_UNITS = [
+      [1, "1분"],
+      [3, "3분"],
+      [5, "5분"],
+      [15, "15분"],
+      [30, "30분"],
+      [60, "60분"],
+      [240, "240분 (4시간)"],
+    ];
+
+    const asNum = (v) => {
+      if (v == null || v === "") return NaN;
+      return typeof v === "string" ? parseFloat(v) : Number(v);
+    };
+
+    const fmtKrw = (n) =>
+      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 }).format(asNum(n));
+    const fmtVol = (n) =>
+      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 6 }).format(asNum(n));
+    const fmtDec = (n, frac = 8) =>
+      new Intl.NumberFormat("ko-KR", {
+        maximumFractionDigits: frac,
+        minimumFractionDigits: 0,
+      }).format(asNum(n));
+
+    function changeClass(ch) {
+      if (ch === "RISE") return "chg-rise";
+      if (ch === "FALL") return "chg-fall";
+      return "chg-even";
+    }
+
+    function changeLabel(ch) {
+      if (ch === "RISE") return "상승";
+      if (ch === "FALL") return "하락";
+      return "보합";
+    }
+
+    async function loadUpbit() {
+      const status = document.getElementById("upbit-status");
+      const wrap = document.getElementById("upbit-table-wrap");
+      status.textContent = "불러오는 중…";
+      status.classList.remove("error");
+      try {
+        const res = await fetch("/api/exchanges/upbit/ticker");
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || res.statusText);
+        }
+        const data = await res.json();
+        status.textContent = "마지막 조회: " + new Date().toLocaleTimeString("ko-KR");
+
+        if (!data.length) {
+          wrap.innerHTML = "<p class=\"placeholder\">데이터가 없습니다.</p>";
+          return;
+        }
+
+        const rows = data
+          .map(
+            (q) => `
+          <tr>
+            <td><strong>${q.market}</strong></td>
+            <td class="num">${fmtKrw(q.trade_price)}</td>
+            <td class="num">${fmtKrw(q.opening_price)}</td>
+            <td class="num">${fmtKrw(q.high_price)}</td>
+            <td class="num">${fmtKrw(q.low_price)}</td>
+            <td class="num">${fmtVol(q.trade_volume)}</td>
+            <td class="${changeClass(q.change)}">${changeLabel(q.change)}</td>
+          </tr>`
+          )
+          .join("");
+
+        wrap.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>마켓</th>
+                <th>현재가</th>
+                <th>시가</th>
+                <th>고가</th>
+                <th>저가</th>
+                <th>거래량</th>
+                <th>전일대비</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+      } catch (e) {
+        status.textContent = "오류: " + e.message;
+        status.classList.add("error");
+        wrap.innerHTML = "";
+      }
+    }
+
+    /**
+     * orderbook_units를 가격별로 합침. 같은 호가에 매수·매도가 모두 있으면 한 줄에 표시.
+     * 가격 내림차순(높은 호가가 위).
+     */
+    function mergeOrderbookByPrice(units) {
+      const byPrice = new Map();
+      for (const u of units) {
+        const bp = asNum(u.bid_price);
+        const ap = asNum(u.ask_price);
+        const bs = asNum(u.bid_size);
+        const aks = asNum(u.ask_size);
+        if (!byPrice.has(bp))
+          byPrice.set(bp, { bid: 0, ask: 0 });
+        if (!byPrice.has(ap))
+          byPrice.set(ap, { bid: 0, ask: 0 });
+        const rowB = byPrice.get(bp);
+        rowB.bid += Number.isFinite(bs) ? bs : 0;
+        const rowA = byPrice.get(ap);
+        rowA.ask += Number.isFinite(aks) ? aks : 0;
+      }
+      const prices = [...byPrice.keys()]
+        .filter((p) => Number.isFinite(p))
+        .sort((a, b) => b - a);
+      return prices.map((p) => {
+        const cell = byPrice.get(p);
+        return {
+          price: p,
+          bidSize: cell.bid > 0 ? cell.bid : null,
+          askSize: cell.ask > 0 ? cell.ask : null,
+        };
+      });
+    }
+
+    function initOrderbookMarketSelect() {
+      const sel = document.getElementById("upbit-ob-market");
+      sel.innerHTML = "";
+      for (const m of UPBIT_MARKETS) {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = m;
+        sel.appendChild(o);
+      }
+    }
+
+    function initCandleControls() {
+      const msel = document.getElementById("upbit-candle-market");
+      msel.innerHTML = "";
+      for (const m of UPBIT_MARKETS) {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = m;
+        msel.appendChild(o);
+      }
+      const usel = document.getElementById("upbit-candle-unit");
+      usel.innerHTML = "";
+      for (const [u, label] of MINUTE_UNITS) {
+        const o = document.createElement("option");
+        o.value = String(u);
+        o.textContent = label;
+        if (u === 60) o.selected = true;
+        usel.appendChild(o);
+      }
+    }
+
+    /** Upbit KST ISO 문자열 → UTC 초 (Lightweight Charts time) */
+    function kstToUtcSeconds(kstStr) {
+      if (!kstStr) return 0;
+      const normalized = String(kstStr).trim().replace(" ", "T");
+      const d = new Date(
+        normalized.includes("+") || normalized.endsWith("Z")
+          ? normalized
+          : normalized + "+09:00"
+      );
+      return Math.floor(d.getTime() / 1000);
+    }
+
+    let upbitCandleChart = null;
+
+    function destroyUpbitCandleChart() {
+      if (upbitCandleChart) {
+        upbitCandleChart.remove();
+        upbitCandleChart = null;
+      }
+    }
+
+    function renderUpbitCandleChart(candles) {
+      const host = document.getElementById("upbit-candle-chart-host");
+      if (!host || typeof LightweightCharts === "undefined") {
+        return;
+      }
+      destroyUpbitCandleChart();
+      host.innerHTML = "";
+
+      const L = LightweightCharts;
+      const sorted = [...candles].sort(
+        (a, b) =>
+          kstToUtcSeconds(a.candle_date_time_kst) -
+          kstToUtcSeconds(b.candle_date_time_kst)
+      );
+
+      const candleData = sorted.map((c) => {
+        const time = kstToUtcSeconds(c.candle_date_time_kst);
+        return {
+          time,
+          open: asNum(c.opening_price),
+          high: asNum(c.high_price),
+          low: asNum(c.low_price),
+          close: asNum(c.trade_price),
+        };
+      });
+
+      const volumeData = sorted.map((c) => {
+        const time = kstToUtcSeconds(c.candle_date_time_kst);
+        const open = asNum(c.opening_price);
+        const close = asNum(c.trade_price);
+        return {
+          time,
+          value: asNum(c.candle_acc_trade_volume),
+          color:
+            close >= open
+              ? "rgba(38, 166, 154, 0.45)"
+              : "rgba(239, 83, 80, 0.45)",
+        };
+      });
+
+      const chart = L.createChart(host, {
+        layout: {
+          background: { type: L.ColorType.Solid, color: "#1a2332" },
+          textColor: "#b8c5d0",
+        },
+        grid: {
+          vertLines: { color: "#2d3a4d" },
+          horzLines: { color: "#2d3a4d" },
+        },
+        width: host.clientWidth,
+        height: host.clientHeight,
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+          borderColor: "#2d3a4d",
+        },
+        rightPriceScale: {
+          borderColor: "#2d3a4d",
+        },
+        crosshair: {
+          vertLine: { color: "#5c6f8a", width: 1, style: 2 },
+          horzLine: { color: "#5c6f8a", width: 1, style: 2 },
+        },
+      });
+
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: "#26a69a",
+        downColor: "#ef5350",
+        borderVisible: false,
+        wickUpColor: "#26a69a",
+        wickDownColor: "#ef5350",
+      });
+      candleSeries.priceScale().applyOptions({
+        scaleMargins: { top: 0.04, bottom: 0.2 },
+      });
+      candleSeries.setData(candleData);
+
+      const volSeries = chart.addHistogramSeries({
+        priceFormat: { type: "volume" },
+        priceScaleId: "",
+      });
+      volSeries.priceScale().applyOptions({
+        scaleMargins: { top: 0.82, bottom: 0 },
+      });
+      volSeries.setData(volumeData);
+
+      chart.timeScale().fitContent();
+      upbitCandleChart = chart;
+    }
+
+    async function loadMinuteCandles() {
+      const status = document.getElementById("upbit-candle-status");
+      const wrap = document.getElementById("upbit-candle-wrap");
+      const tableWrap = document.getElementById("upbit-candle-table-wrap");
+      const market = document.getElementById("upbit-candle-market").value;
+      const unit = parseInt(
+        document.getElementById("upbit-candle-unit").value,
+        10
+      );
+      let count = parseInt(
+        document.getElementById("upbit-candle-count").value,
+        10
+      );
+
+      if (!Number.isFinite(count) || count < 1 || count > 200) {
+        status.textContent = "개수는 1~200 범위의 정수로 입력하세요.";
+        status.classList.add("error");
+        return;
+      }
+
+      status.textContent = "캔들 불러오는 중…";
+      status.classList.remove("error");
+      try {
+        const q = new URLSearchParams({
+          market,
+          unit: String(unit),
+          count: String(count),
+        });
+        const res = await fetch(
+          "/api/exchanges/upbit/candles/minutes?" + q.toString()
+        );
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || res.statusText);
+        }
+        const data = await res.json();
+        status.textContent =
+          "캔들 조회: " + new Date().toLocaleTimeString("ko-KR");
+
+        if (!data.length) {
+          destroyUpbitCandleChart();
+          const host = document.getElementById("upbit-candle-chart-host");
+          if (host) host.innerHTML = "";
+          if (tableWrap) tableWrap.innerHTML = "";
+          wrap.querySelector(".placeholder-candle")?.remove();
+          const ph = document.createElement("p");
+          ph.className = "placeholder placeholder-candle";
+          ph.textContent = "캔들 데이터가 없습니다.";
+          wrap.insertBefore(ph, wrap.firstChild);
+          return;
+        }
+
+        wrap.querySelector(".placeholder-candle")?.remove();
+
+        if (typeof LightweightCharts !== "undefined") {
+          renderUpbitCandleChart(data);
+        } else {
+          destroyUpbitCandleChart();
+          status.textContent +=
+            " (차트 라이브러리 로드 실패 — 네트워크를 확인하세요)";
+        }
+
+        const rows = data
+          .map(
+            (c) => `
+          <tr>
+            <td class="num">${c.candle_date_time_kst ?? "—"}</td>
+            <td class="num">${fmtKrw(c.opening_price)}</td>
+            <td class="num">${fmtKrw(c.high_price)}</td>
+            <td class="num">${fmtKrw(c.low_price)}</td>
+            <td class="num">${fmtKrw(c.trade_price)}</td>
+            <td class="num">${fmtDec(c.candle_acc_trade_price, 2)}</td>
+            <td class="num">${fmtDec(c.candle_acc_trade_volume, 8)}</td>
+            <td class="num">${c.unit ?? unit}</td>
+          </tr>`
+          )
+          .join("");
+
+        if (tableWrap) {
+          tableWrap.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>캔들 시각 (KST)</th>
+                <th>시가</th>
+                <th>고가</th>
+                <th>저가</th>
+                <th>종가</th>
+                <th>거래대금</th>
+                <th>거래량</th>
+                <th>분(unit)</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+        }
+      } catch (e) {
+        status.textContent = "오류: " + e.message;
+        status.classList.add("error");
+        destroyUpbitCandleChart();
+        const host = document.getElementById("upbit-candle-chart-host");
+        if (host) host.innerHTML = "";
+        if (tableWrap) tableWrap.innerHTML = "";
+      }
+    }
+
+    async function loadOrderbook() {
+      const status = document.getElementById("upbit-ob-status");
+      const wrap = document.getElementById("upbit-ob-wrap");
+      const sel = document.getElementById("upbit-ob-market");
+      const market = sel.value || "KRW-BTC";
+
+      status.textContent = "오더북 불러오는 중…";
+      status.classList.remove("error");
+      try {
+        const url =
+          "/api/exchanges/upbit/orderbook?markets=" + encodeURIComponent(market);
+        const res = await fetch(url);
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || res.statusText);
+        }
+        const data = await res.json();
+        status.textContent =
+          "오더북 조회: " + new Date().toLocaleTimeString("ko-KR");
+
+        if (!data.length) {
+          wrap.innerHTML = "<p class=\"placeholder\">오더북 데이터가 없습니다.</p>";
+          return;
+        }
+
+        const parts = data.map((book) => {
+          const units = book.orderbook_units || [];
+          const merged = mergeOrderbookByPrice(units);
+
+          let bestBid = -Infinity;
+          let bestAsk = Infinity;
+          for (const u of units) {
+            const bp = asNum(u.bid_price);
+            const ap = asNum(u.ask_price);
+            if (Number.isFinite(bp)) bestBid = Math.max(bestBid, bp);
+            if (Number.isFinite(ap)) bestAsk = Math.min(bestAsk, ap);
+          }
+
+          const rows = merged
+            .map((row) => {
+              const p = row.price;
+              const isSpread =
+                Number.isFinite(bestBid) &&
+                Number.isFinite(bestAsk) &&
+                p < bestAsk &&
+                p > bestBid;
+              const rowCls = isSpread ? ' class="ob-spread-gap"' : "";
+              const bidCell =
+                row.bidSize != null
+                  ? `<td class="num ob-bid-sz">${fmtDec(row.bidSize)}</td>`
+                  : `<td class="num ob-bid-sz"></td>`;
+              const askCell =
+                row.askSize != null
+                  ? `<td class="num ob-ask-sz">${fmtDec(row.askSize)}</td>`
+                  : `<td class="num ob-ask-sz"></td>`;
+              return `<tr${rowCls}>${bidCell}<td class="num ob-price-mid">${fmtKrw(p)}</td>${askCell}</tr>`;
+            })
+            .join("");
+
+          const ts = book.timestamp
+            ? new Date(Number(book.timestamp)).toLocaleString("ko-KR")
+            : "—";
+
+          const spreadTxt =
+            Number.isFinite(bestBid) &&
+            Number.isFinite(bestAsk) &&
+            bestAsk > bestBid
+              ? ` 스프레드 <strong>${fmtKrw(bestAsk - bestBid)}</strong> (매도 최저 ${fmtKrw(bestAsk)} − 매수 최고 ${fmtKrw(bestBid)})`
+              : "";
+
+          return `
+            <div class="ob-book">
+              <p class="ob-meta">
+                <strong>${book.market}</strong> · 타임스탬프 ${ts}
+                · 호가 단위(level) <strong>${fmtDec(book.level, 0)}</strong>
+                <br />
+                매도 잔량 합계 <strong class="ask-head">${fmtDec(book.total_ask_size)}</strong>
+                · 매수 잔량 합계 <strong class="bid-head">${fmtDec(book.total_bid_size)}</strong>
+                ${spreadTxt}
+              </p>
+              <div class="ob-table-wrap">
+                <table class="ob-table ob-merged">
+                  <thead>
+                    <tr>
+                      <th class="ob-bid-h">매수 잔량</th>
+                      <th class="ob-price-h">호가</th>
+                      <th class="ob-ask-h">매도 잔량</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </div>`;
+        });
+
+        wrap.innerHTML = parts.join("");
+      } catch (e) {
+        status.textContent = "오류: " + e.message;
+        status.classList.add("error");
+        wrap.innerHTML = "";
+      }
+    }
+
+    function activateTab(panelId) {
+      document.querySelectorAll("nav.tabs button").forEach((btn) => {
+        const on = btn.dataset.panel === panelId;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      document.querySelectorAll("main section.panel").forEach((sec) => {
+        const on = sec.id === "panel-" + panelId;
+        sec.classList.toggle("active", on);
+        sec.hidden = !on;
+      });
+      if (panelId === "upbit") {
+        loadUpbit();
+        loadOrderbook();
+        loadMinuteCandles();
+      }
+    }
+
+    document.querySelectorAll("nav.tabs button:not([disabled])").forEach((btn) => {
+      btn.addEventListener("click", () => activateTab(btn.dataset.panel));
+    });
+
+    document.getElementById("btn-upbit-refresh").addEventListener("click", loadUpbit);
+    document
+      .getElementById("btn-upbit-ob-refresh")
+      .addEventListener("click", loadOrderbook);
+    document
+      .getElementById("upbit-ob-market")
+      .addEventListener("change", loadOrderbook);
+    document
+      .getElementById("btn-upbit-candle-refresh")
+      .addEventListener("click", loadMinuteCandles);
+
+    window.addEventListener("resize", () => {
+      const host = document.getElementById("upbit-candle-chart-host");
+      if (upbitCandleChart && host)
+        upbitCandleChart.applyOptions({ width: host.clientWidth });
+    });
+
+    initOrderbookMarketSelect();
+    initCandleControls();
+    activateTab("upbit");
+  </script>
+</body>
+</html>

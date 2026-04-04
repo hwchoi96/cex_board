@@ -1,6 +1,6 @@
 use std::time::Duration;
-use reqwest::{Client};
-use crate::upbit_model::UpbitPairQuote;
+use reqwest::Client;
+use crate::upbit_model::{UpbitMinuteCandle, UpbitOrderBook, UpbitPairQuote};
 
 /// 업비트 open api base url
 const BASE_URL: &str = "https://api.upbit.com";
@@ -10,7 +10,20 @@ fn ticker_url(base: &str, markets: &[&str]) -> String {
     format!("{}/v1/ticker?markets={}", base, markets.join(","))
 }
 
-// 업비트 public client (시세 정보 조회 등)
+fn order_book_url(base: &str, markets: &[&str]) -> String {
+    let base = base.trim_end_matches('/');
+    format!("{}/v1/orderbook?markets={}&count=10", base, markets.join(","))
+    // 10호가만 모아보기
+}
+
+fn minute_candle_url(base: &str, unit: i32, market: String, count: i32) -> String {
+
+    let base = base.trim_end_matches('/');
+    format!("{}/v1/candles/minutes/{}?market={}&count={}", base, unit, market, count)
+}
+
+/// 업비트 public client (시세 정보 조회 등)
+#[derive(Clone)]
 pub struct UpbitPublicClient {
     client: Client,
     url: String,
@@ -29,7 +42,6 @@ pub enum UpbitError {
         body: Option<String>,
     },
 }
-
 
 impl UpbitPublicClient {
     /// Upbit public api client constructor.
@@ -63,21 +75,67 @@ impl UpbitPublicClient {
         let response = self.client.get(&url).send().await?;
         let status = response.status();
 
-        // 실패인 경우,
         if !status.is_success() {
             let body = response.text().await?;
 
-            return Err(
-                UpbitError::ApiError {
-                    status,
-                    body: Some(body)
-                }
-            );
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(body),
+            });
         }
 
         let markets: Vec<UpbitPairQuote> = response.json().await?;
 
         Ok(markets)
+    }
+
+    /// 업베트 마켓-페어 오더북 정보 조회
+    pub async fn get_order_book(&self, pair: &[&str]) -> Result<Vec<UpbitOrderBook>, UpbitError> {
+
+        if pair.is_empty() {
+            return Err(UpbitError::EmptyMarkets);
+        }
+
+        let url = order_book_url(&self.url, pair);
+
+        let response = self.client.get(&url).send().await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            let body = response.text().await?;
+
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(body),
+            });
+        }
+
+        let order_books: Vec<UpbitOrderBook> = response.json().await?;
+        Ok(order_books)
+    }
+
+    /// 업비트 분 캔들 조회
+    ///
+    /// Parameters
+    /// unit: 단위 (1, 3, 5, 10, 15, 30, 60, 240)
+    /// market: 캔들 조회 대상 코인 (e.g. KRW-BTC)
+    /// count: 조회 대상 캔들 개수
+    pub async fn get_minute_candle(&self, unit: i32, market: String, count: i32) -> Result<Vec<UpbitMinuteCandle>, UpbitError> {
+
+        let url = minute_candle_url(&self.url, unit, market, count);
+
+        let response = self.client.get(&url).send().await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(response.text().await?),
+            })
+        }
+
+        let minute_candles: Vec<UpbitMinuteCandle> = response.json().await?;
+        Ok(minute_candles)
     }
 }
 
@@ -85,6 +143,7 @@ impl UpbitPublicClient {
 mod tests {
     use super::*;
     use crate::upbit_model::Change;
+    use rust_decimal::Decimal;
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -111,7 +170,7 @@ mod tests {
             "trade_time": "120000",
             "trade_date_kst": "20230330",
             "trade_time_kst": "120000",
-            "trade_timestamp": 1680172800000_f64,
+            "trade_timestamp": 1680172800000_i64,
             "opening_price": 50_000_000.0,
             "high_price": 51_000_000.0,
             "low_price": 49_000_000.0,
@@ -119,7 +178,7 @@ mod tests {
             "prev_closing_price": 49_500_000.0,
             "change": "RISE",
             "trade_volume": 123.45,
-            "timestamp": 1680172800123_f64,
+            "timestamp": 1680172800123_i64,
         }])
     }
 
@@ -139,7 +198,7 @@ mod tests {
         assert_eq!(quotes.len(), 1);
         assert_eq!(quotes[0].market, "KRW-BTC");
         assert_eq!(quotes[0].change, Change::Rise);
-        assert!((quotes[0].trade_price - 50_500_000.0).abs() < 1.0);
+        assert_eq!(quotes[0].trade_price, Decimal::from(50_500_000));
     }
 
     #[tokio::test]
