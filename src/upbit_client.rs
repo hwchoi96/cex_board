@@ -1,6 +1,6 @@
 use std::time::Duration;
 use reqwest::Client;
-use crate::upbit_model::UpbitPairQuote;
+use crate::upbit_model::{UpbitOrderBook, UpbitPairQuote};
 
 /// 업비트 open api base url
 const BASE_URL: &str = "https://api.upbit.com";
@@ -8,6 +8,12 @@ const BASE_URL: &str = "https://api.upbit.com";
 fn ticker_url(base: &str, markets: &[&str]) -> String {
     let base = base.trim_end_matches('/');
     format!("{}/v1/ticker?markets={}", base, markets.join(","))
+}
+
+fn order_book_url(base: &str, markets: &[&str]) -> String {
+    let base = base.trim_end_matches('/');
+    format!("{}/v1/orderbook?markets={}&count=10", base, markets.join(","))
+    // 10호가만 모아보기
 }
 
 /// 업비트 public client (시세 정보 조회 등)
@@ -76,12 +82,38 @@ impl UpbitPublicClient {
 
         Ok(markets)
     }
+
+    /// 업베트 마켓-페어 오더북 정보 조회
+    pub async fn get_order_book(&self, pair: &[&str]) -> Result<Vec<UpbitOrderBook>, UpbitError> {
+
+        if pair.is_empty() {
+            return Err(UpbitError::EmptyMarkets);
+        }
+
+        let url = order_book_url(&self.url, pair);
+
+        let response = self.client.get(&url).send().await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            let body = response.text().await?;
+
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(body),
+            });
+        }
+
+        let order_books: Vec<UpbitOrderBook> = response.json().await?;
+        Ok(order_books)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::upbit_model::Change;
+    use rust_decimal::Decimal;
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -108,7 +140,7 @@ mod tests {
             "trade_time": "120000",
             "trade_date_kst": "20230330",
             "trade_time_kst": "120000",
-            "trade_timestamp": 1680172800000_f64,
+            "trade_timestamp": 1680172800000_i64,
             "opening_price": 50_000_000.0,
             "high_price": 51_000_000.0,
             "low_price": 49_000_000.0,
@@ -116,7 +148,7 @@ mod tests {
             "prev_closing_price": 49_500_000.0,
             "change": "RISE",
             "trade_volume": 123.45,
-            "timestamp": 1680172800123_f64,
+            "timestamp": 1680172800123_i64,
         }])
     }
 
@@ -136,7 +168,7 @@ mod tests {
         assert_eq!(quotes.len(), 1);
         assert_eq!(quotes[0].market, "KRW-BTC");
         assert_eq!(quotes[0].change, Change::Rise);
-        assert!((quotes[0].trade_price - 50_500_000.0).abs() < 1.0);
+        assert_eq!(quotes[0].trade_price, Decimal::from(50_500_000));
     }
 
     #[tokio::test]

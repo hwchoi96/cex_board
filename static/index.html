@@ -148,6 +148,94 @@
     .chg-fall { color: var(--fall); font-weight: 600; }
     .chg-even { color: var(--even); }
     .num { font-variant-numeric: tabular-nums; }
+    h2.section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.75rem;
+      color: var(--muted);
+    }
+    .ob-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .ob-toolbar label { font-size: 0.85rem; color: var(--muted); }
+    .ob-toolbar select {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    .ob-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+    .ob-meta strong { color: var(--text); }
+    .bid-head { color: var(--rise); }
+    .ask-head { color: var(--fall); }
+    .ob-table-wrap { overflow-x: auto; }
+    table.ob-table { margin-top: 0; }
+    table.ob-table th.ob-bid { background: rgba(38, 166, 154, 0.12); color: var(--rise); }
+    table.ob-table th.ob-ask { background: rgba(239, 83, 80, 0.12); color: var(--fall); }
+    /* 가격 중심 병합 오더북 (매수 ← 가격 → 매도) */
+    table.ob-merged {
+      table-layout: fixed;
+    }
+    table.ob-merged thead th.ob-bid-h {
+      background: rgba(38, 166, 154, 0.14);
+      color: var(--rise);
+      text-align: right;
+    }
+    table.ob-merged thead th.ob-price-h {
+      background: rgba(0, 0, 0, 0.28);
+      color: var(--text);
+      text-align: center;
+      width: 34%;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    table.ob-merged thead th.ob-ask-h {
+      background: rgba(239, 83, 80, 0.14);
+      color: var(--fall);
+      text-align: right;
+    }
+    table.ob-merged tbody td.ob-bid-sz {
+      text-align: right;
+      color: var(--rise);
+      background: linear-gradient(270deg, rgba(38, 166, 154, 0.12) 0%, transparent 72%);
+    }
+    table.ob-merged tbody td.ob-bid-sz:empty::before {
+      content: "—";
+      color: var(--muted);
+      opacity: 0.5;
+    }
+    table.ob-merged tbody td.ob-price-mid {
+      text-align: center;
+      font-weight: 600;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.18);
+      color: var(--text);
+    }
+    table.ob-merged tbody td.ob-ask-sz {
+      text-align: right;
+      color: var(--fall);
+      background: linear-gradient(90deg, rgba(239, 83, 80, 0.12) 0%, transparent 72%);
+    }
+    table.ob-merged tbody td.ob-ask-sz:empty::before {
+      content: "—";
+      color: var(--muted);
+      opacity: 0.5;
+    }
+    table.ob-merged tbody tr.ob-spread-gap td {
+      box-shadow: inset 0 1px 0 rgba(61, 139, 253, 0.35);
+    }
   </style>
 </head>
 <body>
@@ -166,10 +254,20 @@
   <main>
     <section id="panel-upbit" class="panel active" role="tabpanel" aria-label="업비트">
       <div class="toolbar">
-        <button type="button" class="refresh" id="btn-upbit-refresh">새로고침</button>
+        <button type="button" class="refresh" id="btn-upbit-refresh">시세 새로고침</button>
         <span class="status" id="upbit-status"></span>
       </div>
+      <h2 class="section-title">현재가 (ticker)</h2>
       <div id="upbit-table-wrap"></div>
+
+      <h2 class="section-title">호가 오더북</h2>
+      <div class="ob-toolbar">
+        <label for="upbit-ob-market">마켓</label>
+        <select id="upbit-ob-market" aria-label="오더북 마켓"></select>
+        <button type="button" class="refresh" id="btn-upbit-ob-refresh">오더북 새로고침</button>
+        <span class="status" id="upbit-ob-status"></span>
+      </div>
+      <div id="upbit-ob-wrap"></div>
     </section>
 
     <section id="panel-bithumb" class="panel" role="tabpanel" hidden>
@@ -184,10 +282,24 @@
   </main>
 
   <script>
+    const UPBIT_MARKETS = [
+      "KRW-BTC", "KRW-ETH", "KRW-USDT", "KRW-DOGE", "KRW-XRP", "KRW-ONG",
+    ];
+
+    const asNum = (v) => {
+      if (v == null || v === "") return NaN;
+      return typeof v === "string" ? parseFloat(v) : Number(v);
+    };
+
     const fmtKrw = (n) =>
-      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 }).format(n);
+      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 }).format(asNum(n));
     const fmtVol = (n) =>
-      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 4 }).format(n);
+      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 6 }).format(asNum(n));
+    const fmtDec = (n, frac = 8) =>
+      new Intl.NumberFormat("ko-KR", {
+        maximumFractionDigits: frac,
+        minimumFractionDigits: 0,
+      }).format(asNum(n));
 
     function changeClass(ch) {
       if (ch === "RISE") return "chg-rise";
@@ -257,6 +369,153 @@
       }
     }
 
+    /**
+     * orderbook_units를 가격별로 합침. 같은 호가에 매수·매도가 모두 있으면 한 줄에 표시.
+     * 가격 내림차순(높은 호가가 위).
+     */
+    function mergeOrderbookByPrice(units) {
+      const byPrice = new Map();
+      for (const u of units) {
+        const bp = asNum(u.bid_price);
+        const ap = asNum(u.ask_price);
+        const bs = asNum(u.bid_size);
+        const aks = asNum(u.ask_size);
+        if (!byPrice.has(bp))
+          byPrice.set(bp, { bid: 0, ask: 0 });
+        if (!byPrice.has(ap))
+          byPrice.set(ap, { bid: 0, ask: 0 });
+        const rowB = byPrice.get(bp);
+        rowB.bid += Number.isFinite(bs) ? bs : 0;
+        const rowA = byPrice.get(ap);
+        rowA.ask += Number.isFinite(aks) ? aks : 0;
+      }
+      const prices = [...byPrice.keys()]
+        .filter((p) => Number.isFinite(p))
+        .sort((a, b) => b - a);
+      return prices.map((p) => {
+        const cell = byPrice.get(p);
+        return {
+          price: p,
+          bidSize: cell.bid > 0 ? cell.bid : null,
+          askSize: cell.ask > 0 ? cell.ask : null,
+        };
+      });
+    }
+
+    function initOrderbookMarketSelect() {
+      const sel = document.getElementById("upbit-ob-market");
+      sel.innerHTML = "";
+      for (const m of UPBIT_MARKETS) {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = m;
+        sel.appendChild(o);
+      }
+    }
+
+    async function loadOrderbook() {
+      const status = document.getElementById("upbit-ob-status");
+      const wrap = document.getElementById("upbit-ob-wrap");
+      const sel = document.getElementById("upbit-ob-market");
+      const market = sel.value || "KRW-BTC";
+
+      status.textContent = "오더북 불러오는 중…";
+      status.classList.remove("error");
+      try {
+        const url =
+          "/api/exchanges/upbit/orderbook?markets=" + encodeURIComponent(market);
+        const res = await fetch(url);
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || res.statusText);
+        }
+        const data = await res.json();
+        status.textContent =
+          "오더북 조회: " + new Date().toLocaleTimeString("ko-KR");
+
+        if (!data.length) {
+          wrap.innerHTML = "<p class=\"placeholder\">오더북 데이터가 없습니다.</p>";
+          return;
+        }
+
+        const parts = data.map((book) => {
+          const units = book.orderbook_units || [];
+          const merged = mergeOrderbookByPrice(units);
+
+          let bestBid = -Infinity;
+          let bestAsk = Infinity;
+          for (const u of units) {
+            const bp = asNum(u.bid_price);
+            const ap = asNum(u.ask_price);
+            if (Number.isFinite(bp)) bestBid = Math.max(bestBid, bp);
+            if (Number.isFinite(ap)) bestAsk = Math.min(bestAsk, ap);
+          }
+
+          const rows = merged
+            .map((row) => {
+              const p = row.price;
+              const isSpread =
+                Number.isFinite(bestBid) &&
+                Number.isFinite(bestAsk) &&
+                p < bestAsk &&
+                p > bestBid;
+              const rowCls = isSpread ? ' class="ob-spread-gap"' : "";
+              const bidCell =
+                row.bidSize != null
+                  ? `<td class="num ob-bid-sz">${fmtDec(row.bidSize)}</td>`
+                  : `<td class="num ob-bid-sz"></td>`;
+              const askCell =
+                row.askSize != null
+                  ? `<td class="num ob-ask-sz">${fmtDec(row.askSize)}</td>`
+                  : `<td class="num ob-ask-sz"></td>`;
+              return `<tr${rowCls}>${bidCell}<td class="num ob-price-mid">${fmtKrw(p)}</td>${askCell}</tr>`;
+            })
+            .join("");
+
+          const ts = book.timestamp
+            ? new Date(Number(book.timestamp)).toLocaleString("ko-KR")
+            : "—";
+
+          const spreadTxt =
+            Number.isFinite(bestBid) &&
+            Number.isFinite(bestAsk) &&
+            bestAsk > bestBid
+              ? ` 스프레드 <strong>${fmtKrw(bestAsk - bestBid)}</strong> (매도 최저 ${fmtKrw(bestAsk)} − 매수 최고 ${fmtKrw(bestBid)})`
+              : "";
+
+          return `
+            <div class="ob-book">
+              <p class="ob-meta">
+                <strong>${book.market}</strong> · 타임스탬프 ${ts}
+                · 호가 단위(level) <strong>${fmtDec(book.level, 0)}</strong>
+                <br />
+                매도 잔량 합계 <strong class="ask-head">${fmtDec(book.total_ask_size)}</strong>
+                · 매수 잔량 합계 <strong class="bid-head">${fmtDec(book.total_bid_size)}</strong>
+                ${spreadTxt}
+              </p>
+              <div class="ob-table-wrap">
+                <table class="ob-table ob-merged">
+                  <thead>
+                    <tr>
+                      <th class="ob-bid-h">매수 잔량</th>
+                      <th class="ob-price-h">호가</th>
+                      <th class="ob-ask-h">매도 잔량</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
+            </div>`;
+        });
+
+        wrap.innerHTML = parts.join("");
+      } catch (e) {
+        status.textContent = "오류: " + e.message;
+        status.classList.add("error");
+        wrap.innerHTML = "";
+      }
+    }
+
     function activateTab(panelId) {
       document.querySelectorAll("nav.tabs button").forEach((btn) => {
         const on = btn.dataset.panel === panelId;
@@ -268,7 +527,10 @@
         sec.classList.toggle("active", on);
         sec.hidden = !on;
       });
-      if (panelId === "upbit") loadUpbit();
+      if (panelId === "upbit") {
+        loadUpbit();
+        loadOrderbook();
+      }
     }
 
     document.querySelectorAll("nav.tabs button:not([disabled])").forEach((btn) => {
@@ -276,7 +538,14 @@
     });
 
     document.getElementById("btn-upbit-refresh").addEventListener("click", loadUpbit);
+    document
+      .getElementById("btn-upbit-ob-refresh")
+      .addEventListener("click", loadOrderbook);
+    document
+      .getElementById("upbit-ob-market")
+      .addEventListener("change", loadOrderbook);
 
+    initOrderbookMarketSelect();
     activateTab("upbit");
   </script>
 </body>

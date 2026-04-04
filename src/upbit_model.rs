@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// API 문자열 `EVEN` / `RISE` / `FALL` 과 매칭
@@ -19,13 +20,33 @@ pub struct UpbitPairQuote {
     pub trade_time: String,
     pub trade_date_kst: String,
     pub trade_time_kst: String,
-    pub trade_timestamp: f64,
-    pub opening_price: f64, // 시가 (첫 거래 가격)
-    pub high_price: f64,    // 고가
-    pub low_price: f64,     // 저가
-    pub trade_price: f64,   // 종가
-    pub prev_closing_price: f64, // 전일 종가 (UTC 0시 기준)
+    pub trade_timestamp: u64,
+    pub opening_price: Decimal,
+    pub high_price: Decimal,
+    pub low_price: Decimal,
+    pub trade_price: Decimal,
+    pub prev_closing_price: Decimal,
     pub change: Change,
-    pub trade_volume: f64, // 최근 거래 수량
-    pub timestamp: f64,    // 현재가가 반영된 시간
+    pub trade_volume: Decimal,
+    pub timestamp: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct OrderBookUnit {
+    pub ask_price: Decimal,
+    pub bid_price: Decimal,
+    pub ask_size: Decimal,
+    pub bid_size: Decimal,
+}
+
+/// https://docs.upbit.com/kr/reference/list-orderbooks
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UpbitOrderBook {
+    pub market: String,
+    pub timestamp: u64,
+    pub total_ask_size: Decimal,
+    pub total_bid_size: Decimal,
+    #[serde(rename = "orderbook_units")]
+    pub order_book_units: Vec<OrderBookUnit>,
+    pub level: Decimal,
 }
