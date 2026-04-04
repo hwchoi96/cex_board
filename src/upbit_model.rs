@@ -47,6 +47,23 @@ pub struct UpbitOrderBook {
     pub total_ask_size: Decimal,
     pub total_bid_size: Decimal,
     #[serde(rename = "orderbook_units")]
-    pub order_book_units: Vec<OrderBookUnit>,
+    pub order_book_unit: Vec<OrderBookUnit>,
     pub level: Decimal,
+}
+
+/// https://docs.upbit.com/kr/reference/list-candles-minutes
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UpbitMinuteCandle {
+    pub market: String,
+    #[serde(rename = "candle_date_time_utc")]
+    pub candle_date_time_utc: String,
+    pub candle_date_time_kst: String,
+    pub opening_price: Decimal,
+    pub high_price: Decimal,
+    pub low_price: Decimal,
+    pub trade_price: Decimal,
+    pub timestamp: u64,
+    pub candle_acc_trade_price: Decimal,
+    pub candle_acc_trade_volume: Decimal,
+    pub unit: i32,
 }
