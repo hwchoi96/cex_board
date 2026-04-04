@@ -10,8 +10,8 @@ use axum::{
 use serde::Deserialize;
 
 use crate::markets::DEFAULT_UPBIT_MARKETS;
-use crate::upbit_client::UpbitPublicClient;
-use crate::upbit_model::{UpbitMinuteCandle, UpbitOrderBook};
+use crate::upbit_client::{UpbitError, UpbitPublicClient};
+use crate::upbit_model::{UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook};
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
 pub const MINUTE_CANDLE_UNITS: &[i32] = &[1, 3, 5, 15, 30, 60, 240];
@@ -27,6 +27,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/exchanges/upbit/ticker", get(upbit_tickers))
         .route("/api/exchanges/upbit/orderbook", get(upbit_orderbook))
         .route("/api/exchanges/upbit/candles/minutes", get(upbit_minute_candle))
+        .route("/api/exchanges/upbit/balance", get(upbit_my_balance))
         .with_state(state)
 }
 
@@ -119,5 +120,19 @@ async fn upbit_minute_candle(
     {
         Ok(rows) => Json::<Vec<UpbitMinuteCandle>>(rows).into_response(),
         Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
+async fn upbit_my_balance(State(state): State<AppState>) -> impl IntoResponse {
+    match state.upbit.get_my_balance().await {
+        Ok(rows) => Json::<Vec<UpbitMyBalance>>(rows).into_response(),
+        Err(e) => {
+            let status = if matches!(e, UpbitError::AuthorizationError) {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::BAD_GATEWAY
+            };
+            (status, e.to_string()).into_response()
+        }
     }
 }
