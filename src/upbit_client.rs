@@ -1,6 +1,6 @@
 use std::time::Duration;
 use reqwest::Client;
-use crate::upbit_model::UpbitPairQuote;
+use crate::upbit_model::{UpbitOrderBook, UpbitPairQuote};
 
 /// 업비트 open api base url
 const BASE_URL: &str = "https://api.upbit.com";
@@ -8,6 +8,12 @@ const BASE_URL: &str = "https://api.upbit.com";
 fn ticker_url(base: &str, markets: &[&str]) -> String {
     let base = base.trim_end_matches('/');
     format!("{}/v1/ticker?markets={}", base, markets.join(","))
+}
+
+fn order_book_url(base: &str, markets: &[&str]) -> String {
+    let base = base.trim_end_matches('/');
+    format!("{}/v1/orderbook?markets={}&count=10", base, markets.join(","))
+    // 10호가만 모아보기
 }
 
 /// 업비트 public client (시세 정보 조회 등)
@@ -75,6 +81,31 @@ impl UpbitPublicClient {
         let markets: Vec<UpbitPairQuote> = response.json().await?;
 
         Ok(markets)
+    }
+
+    /// 업베트 마켓-페어 오더북 정보 조회
+    pub async fn get_order_book(&self, pair: &[&str]) -> Result<Vec<UpbitOrderBook>, UpbitError> {
+
+        if pair.is_empty() {
+            return Err(UpbitError::EmptyMarkets);
+        }
+
+        let url = order_book_url(&self.url, pair);
+
+        let response = self.client.get(&url).send().await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            let body = response.text().await?;
+
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(body),
+            });
+        }
+
+        let order_books: Vec<UpbitOrderBook> = response.json().await?;
+        Ok(order_books)
     }
 }
 
