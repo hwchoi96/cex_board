@@ -1,6 +1,6 @@
 use std::time::Duration;
 use reqwest::Client;
-use crate::upbit_model::{UpbitOrderBook, UpbitPairQuote};
+use crate::upbit_model::{UpbitMinuteCandle, UpbitOrderBook, UpbitPairQuote};
 
 /// 업비트 open api base url
 const BASE_URL: &str = "https://api.upbit.com";
@@ -14,6 +14,12 @@ fn order_book_url(base: &str, markets: &[&str]) -> String {
     let base = base.trim_end_matches('/');
     format!("{}/v1/orderbook?markets={}&count=10", base, markets.join(","))
     // 10호가만 모아보기
+}
+
+fn minute_candle_url(base: &str, unit: i32, market: String, count: i32) -> String {
+
+    let base = base.trim_end_matches('/');
+    format!("{}/v1/candles/minutes/{}?market={}&count={}", base, unit, market, count)
 }
 
 /// 업비트 public client (시세 정보 조회 등)
@@ -106,6 +112,30 @@ impl UpbitPublicClient {
 
         let order_books: Vec<UpbitOrderBook> = response.json().await?;
         Ok(order_books)
+    }
+
+    /// 업비트 분 캔들 조회
+    ///
+    /// Parameters
+    /// unit: 단위 (1, 3, 5, 10, 15, 30, 60, 240)
+    /// market: 캔들 조회 대상 코인 (e.g. KRW-BTC)
+    /// count: 조회 대상 캔들 개수
+    pub async fn get_minute_candle(&self, unit: i32, market: String, count: i32) -> Result<Vec<UpbitMinuteCandle>, UpbitError> {
+
+        let url = minute_candle_url(&self.url, unit, market, count);
+
+        let response = self.client.get(&url).send().await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(response.text().await?),
+            })
+        }
+
+        let minute_candles: Vec<UpbitMinuteCandle> = response.json().await?;
+        Ok(minute_candles)
     }
 }
 
