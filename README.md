@@ -1,3 +1,2 @@
-# cex_board
+# cex_board (Centralized Exchange board)
 
-### 중앙화 암호화폐 거래소에 대한 대시보드를 제공
