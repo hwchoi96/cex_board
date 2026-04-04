@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// API 문자열 `EVEN` / `RISE` / `FALL` 과 매칭
@@ -19,13 +20,32 @@ pub struct UpbitPairQuote {
     pub trade_time: String,
     pub trade_date_kst: String,
     pub trade_time_kst: String,
-    pub trade_timestamp: f64,
-    pub opening_price: f64, // 시가 (첫 거래 가격)
-    pub high_price: f64,    // 고가
-    pub low_price: f64,     // 저가
-    pub trade_price: f64,   // 종가
-    pub prev_closing_price: f64, // 전일 종가 (UTC 0시 기준)
+    pub trade_timestamp: u64,
+    pub opening_price: Decimal, // 시가 (첫 거래 가격)
+    pub high_price: Decimal,    // 고가
+    pub low_price: Decimal,     // 저가
+    pub trade_price: Decimal,   // 종가
+    pub prev_closing_price: Decimal, // 전일 종가 (UTC 0시 기준)
     pub change: Change,
-    pub trade_volume: f64, // 최근 거래 수량
-    pub timestamp: f64,    // 현재가가 반영된 시간
+    pub trade_volume: Decimal, // 최근 거래 수량
+    pub timestamp: u64,    // 현재가가 반영된 시간
+}
+
+pub struct OrderBookUnit {
+    pub ask_price: Decimal, // 매도 호가
+    pub bid_price: Decimal, // 매수 호가
+    pub ask_size: Decimal, // 매도 잔량
+    pub bid_size: Decimal, // 매수 잔량
+}
+
+/// https://docs.upbit.com/kr/reference/list-orderbooks
+/// 업비트 오더북 호가 정보
+pub struct UpbitOrderBook {
+
+    pub market: String,
+    pub timestamp: u64,
+    pub total_ask_size: Decimal, // 현재 호가의 전체 매도 잔량 합계
+    pub total_bid_size: Decimal, // 현재 호가의 전체 매수 잔량 합계
+    pub order_book_unit: Vec<OrderBookUnit>,
+    pub level: Decimal // 해당 호가가 적용된 가격 단위
 }

@@ -82,6 +82,7 @@ impl UpbitPublicClient {
 mod tests {
     use super::*;
     use crate::upbit_model::Change;
+    use rust_decimal::Decimal;
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -108,7 +109,7 @@ mod tests {
             "trade_time": "120000",
             "trade_date_kst": "20230330",
             "trade_time_kst": "120000",
-            "trade_timestamp": 1680172800000_f64,
+            "trade_timestamp": 1680172800000_i64,
             "opening_price": 50_000_000.0,
             "high_price": 51_000_000.0,
             "low_price": 49_000_000.0,
@@ -116,7 +117,7 @@ mod tests {
             "prev_closing_price": 49_500_000.0,
             "change": "RISE",
             "trade_volume": 123.45,
-            "timestamp": 1680172800123_f64,
+            "timestamp": 1680172800123_i64,
         }])
     }
 
@@ -136,7 +137,7 @@ mod tests {
         assert_eq!(quotes.len(), 1);
         assert_eq!(quotes[0].market, "KRW-BTC");
         assert_eq!(quotes[0].change, Change::Rise);
-        assert!((quotes[0].trade_price - 50_500_000.0).abs() < 1.0);
+        assert_eq!(quotes[0].trade_price, Decimal::from(50_500_000));
     }
 
     #[tokio::test]
