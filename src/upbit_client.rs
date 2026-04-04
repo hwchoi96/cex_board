@@ -1,5 +1,5 @@
 use std::time::Duration;
-use reqwest::{Client};
+use reqwest::Client;
 use crate::upbit_model::UpbitPairQuote;
 
 /// 업비트 open api base url
@@ -10,7 +10,8 @@ fn ticker_url(base: &str, markets: &[&str]) -> String {
     format!("{}/v1/ticker?markets={}", base, markets.join(","))
 }
 
-// 업비트 public client (시세 정보 조회 등)
+/// 업비트 public client (시세 정보 조회 등)
+#[derive(Clone)]
 pub struct UpbitPublicClient {
     client: Client,
     url: String,
@@ -29,7 +30,6 @@ pub enum UpbitError {
         body: Option<String>,
     },
 }
-
 
 impl UpbitPublicClient {
     /// Upbit public api client constructor.
@@ -63,16 +63,13 @@ impl UpbitPublicClient {
         let response = self.client.get(&url).send().await?;
         let status = response.status();
 
-        // 실패인 경우,
         if !status.is_success() {
             let body = response.text().await?;
 
-            return Err(
-                UpbitError::ApiError {
-                    status,
-                    body: Some(body)
-                }
-            );
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(body),
+            });
         }
 
         let markets: Vec<UpbitPairQuote> = response.json().await?;

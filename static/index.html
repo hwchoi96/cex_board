@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CEX Board</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --rise: #26a69a;
+      --fall: #ef5350;
+      --even: #90a4ae;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin: 0.35rem 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    nav.tabs {
+      display: flex;
+      gap: 0.25rem;
+      padding: 0.75rem 1.5rem 0;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    nav.tabs button {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    nav.tabs button:hover {
+      color: var(--text);
+      background: rgba(61, 139, 255, 0.08);
+    }
+    nav.tabs button.active {
+      color: var(--text);
+      background: var(--surface);
+      border-color: var(--border);
+      border-bottom-color: var(--surface);
+      margin-bottom: -1px;
+      font-weight: 600;
+    }
+    nav.tabs button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    main {
+      padding: 1.25rem 1.5rem 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .placeholder {
+      padding: 3rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .toolbar button.refresh {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .toolbar button.refresh:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .toolbar .status {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .toolbar .status.error { color: var(--fall); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: right;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    thead th {
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tbody tr {
+      border-top: 1px solid var(--border);
+    }
+    tbody tr:hover {
+      background: rgba(61, 139, 255, 0.06);
+    }
+    .chg-rise { color: var(--rise); font-weight: 600; }
+    .chg-fall { color: var(--fall); font-weight: 600; }
+    .chg-even { color: var(--even); }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CEX Board</h1>
+    <p>localhost:9090 — 거래소별 시세 (추가 예정)</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="거래소">
+    <button type="button" role="tab" data-panel="upbit" class="active" aria-selected="true">업비트</button>
+    <button type="button" role="tab" data-panel="bithumb" aria-selected="false" disabled title="준비 중">빗썸</button>
+    <button type="button" role="tab" data-panel="coinone" aria-selected="false" disabled title="준비 중">코인원</button>
+    <button type="button" role="tab" data-panel="korbit" aria-selected="false" disabled title="준비 중">코빗</button>
+  </nav>
+
+  <main>
+    <section id="panel-upbit" class="panel active" role="tabpanel" aria-label="업비트">
+      <div class="toolbar">
+        <button type="button" class="refresh" id="btn-upbit-refresh">새로고침</button>
+        <span class="status" id="upbit-status"></span>
+      </div>
+      <div id="upbit-table-wrap"></div>
+    </section>
+
+    <section id="panel-bithumb" class="panel" role="tabpanel" hidden>
+      <div class="placeholder">빗썸 연동은 준비 중입니다.</div>
+    </section>
+    <section id="panel-coinone" class="panel" role="tabpanel" hidden>
+      <div class="placeholder">코인원 연동은 준비 중입니다.</div>
+    </section>
+    <section id="panel-korbit" class="panel" role="tabpanel" hidden>
+      <div class="placeholder">코빗 연동은 준비 중입니다.</div>
+    </section>
+  </main>
+
+  <script>
+    const fmtKrw = (n) =>
+      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 }).format(n);
+    const fmtVol = (n) =>
+      new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 4 }).format(n);
+
+    function changeClass(ch) {
+      if (ch === "RISE") return "chg-rise";
+      if (ch === "FALL") return "chg-fall";
+      return "chg-even";
+    }
+
+    function changeLabel(ch) {
+      if (ch === "RISE") return "상승";
+      if (ch === "FALL") return "하락";
+      return "보합";
+    }
+
+    async function loadUpbit() {
+      const status = document.getElementById("upbit-status");
+      const wrap = document.getElementById("upbit-table-wrap");
+      status.textContent = "불러오는 중…";
+      status.classList.remove("error");
+      try {
+        const res = await fetch("/api/exchanges/upbit/ticker");
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || res.statusText);
+        }
+        const data = await res.json();
+        status.textContent = "마지막 조회: " + new Date().toLocaleTimeString("ko-KR");
+
+        if (!data.length) {
+          wrap.innerHTML = "<p class=\"placeholder\">데이터가 없습니다.</p>";
+          return;
+        }
+
+        const rows = data
+          .map(
+            (q) => `
+          <tr>
+            <td><strong>${q.market}</strong></td>
+            <td class="num">${fmtKrw(q.trade_price)}</td>
+            <td class="num">${fmtKrw(q.opening_price)}</td>
+            <td class="num">${fmtKrw(q.high_price)}</td>
+            <td class="num">${fmtKrw(q.low_price)}</td>
+            <td class="num">${fmtVol(q.trade_volume)}</td>
+            <td class="${changeClass(q.change)}">${changeLabel(q.change)}</td>
+          </tr>`
+          )
+          .join("");
+
+        wrap.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>마켓</th>
+                <th>현재가</th>
+                <th>시가</th>
+                <th>고가</th>
+                <th>저가</th>
+                <th>거래량</th>
+                <th>전일대비</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+      } catch (e) {
+        status.textContent = "오류: " + e.message;
+        status.classList.add("error");
+        wrap.innerHTML = "";
+      }
+    }
+
+    function activateTab(panelId) {
+      document.querySelectorAll("nav.tabs button").forEach((btn) => {
+        const on = btn.dataset.panel === panelId;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      document.querySelectorAll("main section.panel").forEach((sec) => {
+        const on = sec.id === "panel-" + panelId;
+        sec.classList.toggle("active", on);
+        sec.hidden = !on;
+      });
+      if (panelId === "upbit") loadUpbit();
+    }
+
+    document.querySelectorAll("nav.tabs button:not([disabled])").forEach((btn) => {
+      btn.addEventListener("click", () => activateTab(btn.dataset.panel));
+    });
+
+    document.getElementById("btn-upbit-refresh").addEventListener("click", loadUpbit);
+
+    activateTab("upbit");
+  </script>
+</body>
+</html>
