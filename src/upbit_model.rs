@@ -1,8 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// API 문자열 `EVEN` / `RISE` / `FALL` 과 매칭
 /// https://docs.upbit.com/kr/reference/list-tickers
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Change {
     Even, // 보합
@@ -12,7 +12,7 @@ pub enum Change {
 
 /// https://docs.upbit.com/kr/reference/list-tickers
 /// 업비트 페어 단위 현재가
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UpbitPairQuote {
     pub market: String,
     pub trade_date: String,
@@ -29,4 +29,3 @@ pub struct UpbitPairQuote {
     pub trade_volume: f64, // 최근 거래 수량
     pub timestamp: f64,    // 현재가가 반영된 시간
 }
-
