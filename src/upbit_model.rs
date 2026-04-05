@@ -1,6 +1,8 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::constants::{BuySellType, ContStrategy, OrderType, SmpType};
+
 /// API 문자열 `EVEN` / `RISE` / `FALL` 과 매칭
 /// https://docs.upbit.com/kr/reference/list-tickers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -77,4 +79,23 @@ pub struct UpbitMyBalance {
     pub avg_buy_price: Decimal,
     pub avg_buy_price_modified: bool,
     pub unit_currency: String,
+}
+
+/// https://docs.upbit.com/kr/reference/new-order
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UpbitOrderRequest {
+    pub market: String,
+    pub side: BuySellType,
+    #[serde(rename = "ord_type")]
+    pub ord_type: OrderType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume: Option<Decimal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub price: Option<Decimal>,
+    #[serde(default, rename = "time_in_force", skip_serializing_if = "Option::is_none")]
+    pub time_in_force: Option<ContStrategy>,
+    #[serde(default, rename = "smp_type", skip_serializing_if = "Option::is_none")]
+    pub smp_type: Option<SmpType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub identifier: Option<String>,
 }

@@ -4,6 +4,7 @@
 //! 파라미터가 없는 `GET`(예: `/v1/accounts`)은 빈 문자열을 넘깁니다.
 
 use serde::Serialize;
+use serde_json::Value;
 use sha2::{Digest, Sha512};
 
 #[derive(Serialize)]
@@ -46,6 +47,27 @@ pub fn issue_upbit_jwt(
         &claims,
         &jsonwebtoken::EncodingKey::from_secret(secret_key.as_bytes()),
     )
+}
+
+/// POST JSON 본문을 JWT `query_hash`용 쿼리 문자열로 변환합니다. `null` 키는 제외합니다.
+/// [new-order](https://docs.upbit.com/kr/reference/new-order) · [인증](https://docs.upbit.com/kr/reference/auth)
+pub fn post_body_to_query_string_for_jwt(body: &Value) -> String {
+    let Value::Object(map) = body else {
+        return String::new();
+    };
+    map.iter()
+        .filter(|(_, v)| !v.is_null())
+        .map(|(k, v)| {
+            let val = match v {
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                Value::Bool(b) => if *b { "true" } else { "false" }.to_string(),
+                _ => v.to_string(),
+            };
+            format!("{}={}", k, val)
+        })
+        .collect::<Vec<_>>()
+        .join("&")
 }
 
 #[cfg(test)]

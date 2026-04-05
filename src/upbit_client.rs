@@ -2,8 +2,12 @@ use std::time::Duration;
 
 use reqwest::Client;
 
-use crate::upbit_auth::issue_upbit_jwt;
-use crate::upbit_model::{UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitPairQuote};
+use serde_json::Value;
+
+use crate::upbit_auth::{issue_upbit_jwt, post_body_to_query_string_for_jwt};
+use crate::upbit_model::{
+    UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest, UpbitPairQuote,
+};
 
 /// 업비트 open api base url
 const BASE_URL: &str = "https://api.upbit.com";
@@ -28,6 +32,11 @@ fn minute_candle_url(base: &str, unit: i32, market: String, count: i32) -> Strin
 fn my_balance_url(base: &str) -> String {
     let base = base.trim_end_matches('/');
     format!("{}/v1/accounts", base)
+}
+
+fn order_url(base: &str) -> String {
+    let base = base.trim_end_matches('/');
+    format!("{}/v1/orders", base)
 }
 
 /// 업비트 public client (시세 정보 조회 등)
@@ -55,6 +64,8 @@ pub enum UpbitError {
     AuthorizationError,
     #[error("JWT 발급 실패: {0}")]
     Jwt(#[from] jsonwebtoken::errors::Error),
+    #[error("JSON 직렬화/역직렬화 실패: {0}")]
+    SerdeJson(#[from] serde_json::Error),
     #[error("API 에러 (status: {status}): {}", .body.as_deref().unwrap_or(""))]
     ApiError {
         status: reqwest::StatusCode,
@@ -241,6 +252,34 @@ impl UpbitPublicClient {
 
         let my_balance: Vec<UpbitMyBalance> = response.json().await?;
         Ok(my_balance)
+    }
+
+    /// 주문 생성 — https://docs.upbit.com/kr/reference/new-order
+    pub async fn order(&self, request: UpbitOrderRequest) -> Result<Value, UpbitError> {
+        let body_value = serde_json::to_value(&request)?;
+        let qs = post_body_to_query_string_for_jwt(&body_value);
+        let body_str = serde_json::to_string(&body_value)?;
+        let url = order_url(&self.url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", self.authorization_header(&qs)?)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .header(reqwest::header::ACCEPT, "application/json")
+            .body(body_str)
+            .send()
+            .await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(response.text().await?),
+            });
+        }
+
+        Ok(response.json().await?)
     }
 }
 
