@@ -67,3 +67,14 @@ pub struct UpbitMinuteCandle {
     pub candle_acc_trade_volume: Decimal,
     pub unit: i32,
 }
+
+/// https://docs.upbit.com/kr/reference/list-accounts
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UpbitMyBalance {
+    pub currency: String,
+    pub balance: Decimal,
+    pub locked: Decimal,
+    pub avg_buy_price: Decimal,
+    pub avg_buy_price_modified: bool,
+    pub unit_currency: String,
+}

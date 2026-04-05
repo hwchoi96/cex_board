@@ -274,6 +274,23 @@
     .candle-raw-details summary:hover {
       color: var(--accent);
     }
+    .balance-table-wrap {
+      max-height: min(45vh, 360px);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .balance-table-wrap table {
+      margin: 0;
+      border-radius: 0;
+    }
+    .balance-hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      line-height: 1.45;
+    }
   </style>
   <script
     src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"
@@ -336,6 +353,17 @@
         <span class="status" id="upbit-status"></span>
       </div>
       <div id="upbit-table-wrap"></div>
+
+      <h2 class="section-title">자산 현황</h2>
+      <p class="balance-hint">
+        서버를 <code>--access_key</code> / <code>--secret_key</code>로 실행하면 JWT가 생성되어 계좌 조회가 됩니다.
+        ([업비트 인증](https://docs.upbit.com/kr/reference/auth))
+      </p>
+      <div class="toolbar">
+        <button type="button" class="refresh" id="btn-upbit-balance-refresh">자산 새로고침</button>
+        <span class="status" id="upbit-balance-status"></span>
+      </div>
+      <div class="balance-table-wrap" id="upbit-balance-wrap"></div>
     </section>
 
     <section id="panel-bithumb" class="panel" role="tabpanel" hidden>
@@ -390,6 +418,78 @@
       if (ch === "RISE") return "상승";
       if (ch === "FALL") return "하락";
       return "보합";
+    }
+
+    function sortBalances(rows) {
+      return [...rows].sort((a, b) => {
+        if (a.currency === "KRW" && b.currency !== "KRW") return -1;
+        if (b.currency === "KRW" && a.currency !== "KRW") return 1;
+        const ta = asNum(a.balance) + asNum(a.locked);
+        const tb = asNum(b.balance) + asNum(b.locked);
+        return tb - ta;
+      });
+    }
+
+    async function loadUpbitBalance() {
+      const status = document.getElementById("upbit-balance-status");
+      const wrap = document.getElementById("upbit-balance-wrap");
+      status.textContent = "불러오는 중…";
+      status.classList.remove("error");
+      try {
+        const res = await fetch("/api/exchanges/upbit/balance");
+        const raw = await res.text();
+        if (!res.ok) {
+          if (res.status === 401) {
+            status.textContent =
+              "인증 필요: 서버를 --access_key 와 --secret_key 로 실행했는지 확인하세요.";
+            status.classList.add("error");
+            wrap.innerHTML = "";
+            return;
+          }
+          throw new Error(raw || res.statusText);
+        }
+        const data = JSON.parse(raw);
+        status.textContent = "마지막 조회: " + new Date().toLocaleTimeString("ko-KR");
+
+        if (!data.length) {
+          wrap.innerHTML = "<p class=\"placeholder\">보유 자산이 없습니다.</p>";
+          return;
+        }
+
+        const sorted = sortBalances(data);
+        const body = sorted
+          .map(
+            (r) => `
+          <tr>
+            <td><strong>${r.currency}</strong></td>
+            <td class="num">${fmtDec(r.balance, 8)}</td>
+            <td class="num">${fmtDec(r.locked, 8)}</td>
+            <td class="num">${fmtDec(r.avg_buy_price, 8)}</td>
+            <td>${r.unit_currency || "—"}</td>
+            <td>${r.avg_buy_price_modified ? "예" : "아니오"}</td>
+          </tr>`
+          )
+          .join("");
+
+        wrap.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>통화</th>
+                <th>주문 가능</th>
+                <th>주문 잠김</th>
+                <th>평균 매수가</th>
+                <th>평가 단위</th>
+                <th>매수가 수정</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>`;
+      } catch (e) {
+        status.textContent = "오류: " + e.message;
+        status.classList.add("error");
+        wrap.innerHTML = "";
+      }
     }
 
     async function loadUpbit() {
@@ -847,6 +947,7 @@
         loadUpbit();
         loadOrderbook();
         loadMinuteCandles();
+        loadUpbitBalance();
       }
     }
 
@@ -864,6 +965,9 @@
     document
       .getElementById("btn-upbit-candle-refresh")
       .addEventListener("click", loadMinuteCandles);
+    document
+      .getElementById("btn-upbit-balance-refresh")
+      .addEventListener("click", loadUpbitBalance);
 
     window.addEventListener("resize", () => {
       const host = document.getElementById("upbit-candle-chart-host");
