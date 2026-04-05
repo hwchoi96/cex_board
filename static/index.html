@@ -291,6 +291,294 @@
       margin: 0 0 0.75rem;
       line-height: 1.45;
     }
+
+    /* 호가 오더북(좌) + 주문(우) 동일 행 */
+    .ob-order-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+      gap: 1.25rem 1.5rem;
+      align-items: start;
+    }
+    .ob-order-col {
+      min-width: 0;
+    }
+    .ob-order-col .section-title {
+      margin-top: 1.5rem;
+    }
+    @media (max-width: 960px) {
+      .ob-order-layout {
+        grid-template-columns: 1fr;
+      }
+      .ob-order-col-order .order-card {
+        margin-bottom: 0;
+      }
+    }
+    @media (min-width: 961px) {
+      .ob-order-col-order {
+        position: sticky;
+        top: 0.75rem;
+      }
+    }
+
+    /* 업비트 스타일 주문 카드 */
+    .order-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem 1.25rem;
+      margin-bottom: 1rem;
+      width: 100%;
+      max-width: none;
+    }
+    .order-card .order-market-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .order-card .order-market-row label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .order-card .order-market-row select {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.9rem;
+    }
+    .order-tabs-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin: 0 -1.25rem 1rem;
+      padding: 0 0.75rem;
+    }
+    .order-tabs-inner button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 0.55rem 0.85rem;
+      font-size: 0.88rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .order-tabs-inner button:hover:not(:disabled) {
+      color: var(--text);
+    }
+    .order-tabs-inner button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .order-tabs-inner button.active[data-order-tab="buy"] {
+      color: var(--fall);
+      font-weight: 600;
+      border-bottom-color: var(--fall);
+    }
+    .order-tabs-inner button.active[data-order-tab="sell"] {
+      color: var(--accent);
+      font-weight: 600;
+      border-bottom-color: var(--accent);
+    }
+    .order-row {
+      display: grid;
+      grid-template-columns: minmax(7rem, 38%) 1fr;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+    .order-row .order-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .order-available-row .order-available-val {
+      text-align: right;
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+    .order-available-row .order-available-val strong {
+      font-variant-numeric: tabular-nums;
+    }
+    .order-available-row .order-available-sub {
+      font-size: 0.76rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .order-seg {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .order-seg button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .order-seg button:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .order-seg button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .order-input-wrap {
+      display: flex;
+      align-items: stretch;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .order-input-wrap input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      padding: 0.5rem 0.65rem;
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .order-input-wrap input:focus {
+      outline: none;
+    }
+    .order-steppers {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border);
+    }
+    .order-steppers button {
+      appearance: none;
+      border: none;
+      background: rgba(61, 139, 253, 0.1);
+      color: var(--accent);
+      width: 2rem;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0.15rem 0;
+    }
+    .order-steppers button:hover {
+      background: rgba(61, 139, 253, 0.2);
+    }
+    .order-steppers button + button {
+      border-top: 1px solid var(--border);
+    }
+    .order-pct-row {
+      grid-column: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: -0.45rem;
+      margin-bottom: 0.35rem;
+    }
+    .order-pct-row button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      padding: 0.2rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .order-pct-row button:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .order-meta-row {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .order-meta-row select {
+      background: var(--bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.8rem;
+      cursor: not-allowed;
+    }
+    .order-actions {
+      display: flex;
+      gap: 0.65rem;
+      align-items: stretch;
+    }
+    .order-btn-reset {
+      appearance: none;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #2a3344;
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .order-btn-reset:hover {
+      border-color: var(--muted);
+    }
+    .order-btn-submit {
+      flex: 1;
+      appearance: none;
+      border: none;
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #fff;
+    }
+    .order-btn-submit.buy {
+      background: var(--fall);
+    }
+    .order-btn-submit.buy:hover {
+      filter: brightness(1.08);
+    }
+    .order-btn-submit.sell {
+      background: var(--accent);
+    }
+    .order-btn-submit.sell:hover {
+      filter: brightness(1.08);
+    }
+    .order-submit-status {
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .order-submit-status.error {
+      color: var(--fall);
+    }
+    .order-submit-status.ok {
+      color: var(--rise);
+    }
+    .order-row.hidden-row {
+      display: none;
+    }
   </style>
   <script
     src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"
@@ -338,14 +626,88 @@
         </details>
       </div>
 
-      <h2 class="section-title">호가 오더북</h2>
-      <div class="ob-toolbar">
-        <label for="upbit-ob-market">마켓</label>
-        <select id="upbit-ob-market" aria-label="오더북 마켓"></select>
-        <button type="button" class="refresh" id="btn-upbit-ob-refresh">오더북 새로고침</button>
-        <span class="status" id="upbit-ob-status"></span>
+      <div class="ob-order-layout" aria-label="호가 및 주문">
+        <div class="ob-order-col ob-order-col-book">
+          <h2 class="section-title">호가 오더북</h2>
+          <div class="ob-toolbar">
+            <label for="upbit-ob-market">마켓</label>
+            <select id="upbit-ob-market" aria-label="오더북 마켓"></select>
+            <button type="button" class="refresh" id="btn-upbit-ob-refresh">오더북 새로고침</button>
+            <span class="status" id="upbit-ob-status"></span>
+          </div>
+          <div id="upbit-ob-wrap"></div>
+        </div>
+        <div class="ob-order-col ob-order-col-order">
+          <h2 class="section-title">주문</h2>
+          <div class="order-card" id="upbit-order-panel">
+            <div class="order-market-row">
+              <label for="upbit-order-market">마켓</label>
+              <select id="upbit-order-market" aria-label="주문 마켓"></select>
+            </div>
+            <div class="order-tabs-inner" role="tablist" aria-label="주문 구분">
+              <button type="button" role="tab" data-order-tab="buy" class="active" aria-selected="true">매수</button>
+              <button type="button" role="tab" data-order-tab="sell" aria-selected="false">매도</button>
+              <button type="button" disabled title="준비 중">간편주문</button>
+              <button type="button" disabled title="준비 중">거래내역</button>
+            </div>
+            <div class="order-row order-type-row">
+              <span class="order-label">주문유형</span>
+              <div class="order-seg" id="order-ord-type-seg">
+                <button type="button" data-ord-type="limit" class="active">지정가</button>
+                <button type="button" data-ord-type="market">시장가</button>
+              </div>
+            </div>
+            <div class="order-row order-available-row">
+              <span class="order-label">주문가능</span>
+              <div class="order-available-val" id="order-available-display">
+                <strong>—</strong>
+              </div>
+            </div>
+            <div class="order-row" id="order-price-row">
+              <label class="order-label" for="order-price-input" id="order-price-label">매수가격 (KRW)</label>
+              <div class="order-input-wrap">
+                <input type="text" id="order-price-input" inputmode="decimal" placeholder="0" autocomplete="off" />
+                <div class="order-steppers">
+                  <button type="button" id="order-price-plus" aria-label="가격 올리기">+</button>
+                  <button type="button" id="order-price-minus" aria-label="가격 내리기">−</button>
+                </div>
+              </div>
+            </div>
+            <div class="order-row" id="order-volume-row">
+              <label class="order-label" for="order-volume-input" id="order-volume-label">주문수량 (BTC)</label>
+              <div class="order-input-wrap">
+                <input type="text" id="order-volume-input" inputmode="decimal" placeholder="0" autocomplete="off" />
+              </div>
+            </div>
+            <div class="order-pct-row" id="order-pct-row">
+              <button type="button" data-pct="10">10%</button>
+              <button type="button" data-pct="25">25%</button>
+              <button type="button" data-pct="50">50%</button>
+              <button type="button" data-pct="100">100%</button>
+              <button type="button" data-pct="0">직접입력</button>
+            </div>
+            <div class="order-row" id="order-total-row">
+              <label class="order-label" for="order-total-input" id="order-total-label">주문총액 (KRW)</label>
+              <div class="order-input-wrap">
+                <input type="text" id="order-total-input" inputmode="decimal" placeholder="0" autocomplete="off" />
+              </div>
+            </div>
+            <div class="order-meta-row">
+              <span class="order-label" style="margin: 0">주문조건</span>
+              <select id="order-condition-select" disabled aria-disabled="true" title="현재는 보통 주문만 지원합니다">
+                <option>보통</option>
+              </select>
+            </div>
+            <div class="order-actions">
+              <button type="button" class="order-btn-reset" id="order-reset" title="입력 초기화">
+                <span aria-hidden="true">↻</span> 초기화
+              </button>
+              <button type="button" class="order-btn-submit buy" id="order-submit">매수</button>
+            </div>
+            <p class="order-submit-status" id="order-submit-status" aria-live="polite"></p>
+          </div>
+        </div>
       </div>
-      <div id="upbit-ob-wrap"></div>
 
       <h2 class="section-title">현재가 (ticker)</h2>
       <div class="toolbar">
@@ -392,6 +754,11 @@
       [60, "60분"],
       [240, "240분 (4시간)"],
     ];
+
+    /** `/api/exchanges/upbit/balance` 마지막 성공 응답 (주문가능 표시용) */
+    let upbitBalanceCache = [];
+    let upbitTickerByMarket = {};
+    let orderFieldSync = false;
 
     const asNum = (v) => {
       if (v == null || v === "") return NaN;
@@ -440,6 +807,8 @@
         const raw = await res.text();
         if (!res.ok) {
           if (res.status === 401) {
+            upbitBalanceCache = [];
+            orderRefreshAvailable();
             status.textContent =
               "인증 필요: 서버를 --access_key 와 --secret_key 로 실행했는지 확인하세요.";
             status.classList.add("error");
@@ -449,7 +818,9 @@
           throw new Error(raw || res.statusText);
         }
         const data = JSON.parse(raw);
+        upbitBalanceCache = Array.isArray(data) ? data : [];
         status.textContent = "마지막 조회: " + new Date().toLocaleTimeString("ko-KR");
+        orderRefreshAvailable();
 
         if (!data.length) {
           wrap.innerHTML = "<p class=\"placeholder\">보유 자산이 없습니다.</p>";
@@ -486,10 +857,450 @@
             <tbody>${body}</tbody>
           </table>`;
       } catch (e) {
+        upbitBalanceCache = [];
+        orderRefreshAvailable();
         status.textContent = "오류: " + e.message;
         status.classList.add("error");
         wrap.innerHTML = "";
       }
+    }
+
+    function parseMarketCoin(market) {
+      const parts = String(market || "").split("-");
+      return parts.length >= 2 ? parts[parts.length - 1] : "BTC";
+    }
+
+    function parseInputDecimal(str) {
+      if (str == null || str === "") return NaN;
+      const t = String(str).replace(/,/g, "").trim();
+      if (t === "") return NaN;
+      return parseFloat(t);
+    }
+
+    function balanceRowFor(currency) {
+      const c = String(currency || "");
+      return upbitBalanceCache.find((r) => r && r.currency === c);
+    }
+
+    function orderGetSide() {
+      const tab = document.querySelector('.order-tabs-inner button.active[data-order-tab]');
+      return tab && tab.dataset.orderTab === "sell" ? "ask" : "bid";
+    }
+
+    /** UI 세그먼트: 'limit' | 'market' (시장가) */
+    function orderGetUiOrdType() {
+      const btn = document.querySelector("#order-ord-type-seg button.active[data-ord-type]");
+      return btn && btn.dataset.ordType === "market" ? "market" : "limit";
+    }
+
+    /** API `ord_type`: limit | price (시장가 매수) | market (시장가 매도) */
+    function orderGetApiOrdType() {
+      const ui = orderGetUiOrdType();
+      if (ui === "limit") return "limit";
+      return orderGetSide() === "bid" ? "price" : "market";
+    }
+
+    function orderRefreshAvailable() {
+      const el = document.getElementById("order-available-display");
+      if (!el) return;
+
+      const market =
+        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+      const coin = parseMarketCoin(market);
+      const side = orderGetSide();
+
+      if (!upbitBalanceCache.length) {
+        el.innerHTML = "<strong>—</strong>";
+        return;
+      }
+
+      if (side === "bid") {
+        const row = balanceRowFor("KRW");
+        const bal = row ? fmtDec(row.balance, 0) : "0";
+        el.innerHTML = `<strong>${bal} KRW</strong>`;
+      } else {
+        const row = balanceRowFor(coin);
+        const bal = row ? fmtDec(row.balance, 8) : "0";
+        const krwFmt = "0";
+        let sub = "";
+        const tr = upbitTickerByMarket[market];
+        if (row && tr && Number.isFinite(asNum(tr.trade_price))) {
+          const approx = asNum(row.balance) * asNum(tr.trade_price);
+          if (Number.isFinite(approx))
+            sub = `<div class="order-available-sub">≈ ${fmtKrw(approx)} KRW</div>`;
+        } else {
+          sub = `<div class="order-available-sub">≈ ${krwFmt} KRW</div>`;
+        }
+        el.innerHTML = `<strong>${bal} ${coin}</strong>${sub}`;
+      }
+    }
+
+    function orderUpdateLabelsAndSubmit() {
+      const market =
+        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+      const coin = parseMarketCoin(market);
+      const side = orderGetSide();
+
+      const pl = document.getElementById("order-price-label");
+      const vl = document.getElementById("order-volume-label");
+      if (pl)
+        pl.textContent =
+          side === "bid" ? "매수가격 (KRW)" : "매도가격 (KRW)";
+      if (vl) vl.textContent = `주문수량 (${coin})`;
+
+      const sub = document.getElementById("order-submit");
+      if (sub) {
+        sub.textContent = side === "bid" ? "매수" : "매도";
+        sub.classList.remove("buy", "sell");
+        sub.classList.add(side === "bid" ? "buy" : "sell");
+      }
+    }
+
+    function orderApplyRowVisibility() {
+      const uiOrd = orderGetUiOrdType();
+      const side = orderGetSide();
+      const pr = document.getElementById("order-price-row");
+      const vr = document.getElementById("order-volume-row");
+      const tr = document.getElementById("order-total-row");
+      const pct = document.getElementById("order-pct-row");
+
+      const isLimit = uiOrd === "limit";
+      const isMarketBuy = uiOrd === "market" && side === "bid";
+      const isMarketSell = uiOrd === "market" && side === "ask";
+
+      pr.classList.toggle("hidden-row", !isLimit);
+      vr.classList.toggle("hidden-row", isMarketBuy);
+      tr.classList.toggle("hidden-row", isMarketSell);
+      pct.classList.toggle("hidden-row", isMarketBuy);
+
+      const tl = document.getElementById("order-total-label");
+      if (tl) {
+        tl.textContent =
+          isMarketBuy ? "주문금액 (KRW)" : "주문총액 (KRW)";
+      }
+    }
+
+    /**
+     * 선택 마켓 티커 현재가로 가격칸을 맞춤.
+     * @param {{ force?: boolean }} opts — `force: true`이면 값이 있어도 덮어씀 (마켓 변경 시).
+     */
+    function orderSyncPriceFromTicker(opts = {}) {
+      const force = opts.force === true;
+      const inp = document.getElementById("order-price-input");
+      if (!inp) return;
+      if (!force && document.activeElement === inp) return;
+      const market =
+        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+      const tr = upbitTickerByMarket[market];
+      if (!tr) return;
+      const p = asNum(tr.trade_price);
+      if (!Number.isFinite(p) || p <= 0) return;
+      const rounded = String(Math.round(p));
+      if (force) {
+        inp.value = rounded;
+      } else if (inp.value.trim() === "" || parseInputDecimal(inp.value) <= 0) {
+        inp.value = rounded;
+      }
+    }
+
+    function orderKrwPriceStep(price) {
+      const p = Number(price) || 1;
+      if (p >= 1_000_000) return 1000;
+      if (p >= 100_000) return 100;
+      if (p >= 10_000) return 10;
+      return 1;
+    }
+
+    function orderRecalcFrom(source) {
+      if (orderFieldSync) return;
+      const uiOrd = orderGetUiOrdType();
+      const side = orderGetSide();
+      const pEl = document.getElementById("order-price-input");
+      const vEl = document.getElementById("order-volume-input");
+      const tEl = document.getElementById("order-total-input");
+      if (!pEl || !vEl || !tEl) return;
+
+      const isLimit = uiOrd === "limit";
+      const isMarketBuy = uiOrd === "market" && side === "bid";
+
+      orderFieldSync = true;
+      try {
+        if (isMarketBuy) return;
+
+        let price = parseInputDecimal(pEl.value);
+        let vol = parseInputDecimal(vEl.value);
+        let total = parseInputDecimal(tEl.value);
+
+        if (!isLimit) {
+          /* 시장가 매도: 수량만 */
+          return;
+        }
+
+        if (source === "price" && Number.isFinite(price) && Number.isFinite(vol)) {
+          total = price * vol;
+          if (Number.isFinite(total))
+            tEl.value = String(Math.round(total));
+        } else if (source === "volume" && Number.isFinite(price) && Number.isFinite(vol)) {
+          total = price * vol;
+          if (Number.isFinite(total))
+            tEl.value = String(Math.round(total));
+        } else if (source === "total" && Number.isFinite(price) && price > 0 && Number.isFinite(total)) {
+          vol = total / price;
+          if (Number.isFinite(vol))
+            vEl.value = String(vol);
+        }
+      } finally {
+        orderFieldSync = false;
+      }
+    }
+
+    function orderApplyPct(pctVal) {
+      const uiOrd = orderGetUiOrdType();
+      const side = orderGetSide();
+      const market =
+        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+      const coin = parseMarketCoin(market);
+      const pEl = document.getElementById("order-price-input");
+      const vEl = document.getElementById("order-volume-input");
+      const tEl = document.getElementById("order-total-input");
+      if (!pEl || !vEl || !tEl) return;
+
+      if (pctVal <= 0) {
+        vEl.value = "";
+        tEl.value = "";
+        return;
+      }
+
+      const frac = pctVal / 100;
+
+      if (uiOrd === "market" && side === "bid") {
+        const row = balanceRowFor("KRW");
+        const krw = row ? asNum(row.balance) : 0;
+        if (!Number.isFinite(krw) || krw <= 0) return;
+        tEl.value = String(Math.max(0, Math.floor(krw * frac)));
+        return;
+      }
+
+      if (uiOrd === "market" && side === "ask") {
+        const row = balanceRowFor(coin);
+        const bal = row ? asNum(row.balance) : 0;
+        if (!Number.isFinite(bal) || bal <= 0) return;
+        vEl.value = String(bal * frac);
+        return;
+      }
+
+      /* 지정가 */
+      const price = parseInputDecimal(pEl.value);
+      if (side === "bid") {
+        const row = balanceRowFor("KRW");
+        const krw = row ? asNum(row.balance) : 0;
+        if (!Number.isFinite(krw) || krw <= 0) return;
+        const total = Math.floor(krw * frac);
+        tEl.value = String(total);
+        if (Number.isFinite(price) && price > 0) {
+          vEl.value = String(total / price);
+        } else {
+          vEl.value = "";
+        }
+      } else {
+        const row = balanceRowFor(coin);
+        const bal = row ? asNum(row.balance) : 0;
+        if (!Number.isFinite(bal) || bal <= 0) return;
+        const vol = bal * frac;
+        vEl.value = String(vol);
+        if (Number.isFinite(price) && price > 0) {
+          tEl.value = String(Math.round(price * vol));
+        } else {
+          tEl.value = "";
+        }
+      }
+    }
+
+    function orderResetInputs() {
+      const pEl = document.getElementById("order-price-input");
+      const vEl = document.getElementById("order-volume-input");
+      const tEl = document.getElementById("order-total-input");
+      if (vEl) vEl.value = "";
+      if (tEl) tEl.value = "";
+      if (pEl) pEl.value = "";
+      orderSyncPriceFromTicker();
+    }
+
+    async function orderSubmit() {
+      const st = document.getElementById("order-submit-status");
+      const market =
+        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+      const side = orderGetSide();
+      const apiOrd = orderGetApiOrdType();
+
+      const pEl = document.getElementById("order-price-input");
+      const vEl = document.getElementById("order-volume-input");
+      const tEl = document.getElementById("order-total-input");
+
+      const body = { market, side, ord_type: apiOrd };
+
+      if (apiOrd === "limit") {
+        const price = parseInputDecimal(pEl?.value);
+        const volume = parseInputDecimal(vEl?.value);
+        if (!Number.isFinite(volume) || volume <= 0) {
+          if (st) {
+            st.textContent = "지정가 주문에는 수량이 필요합니다.";
+            st.classList.add("error");
+            st.classList.remove("ok");
+          }
+          return;
+        }
+        if (!Number.isFinite(price) || price <= 0) {
+          if (st) {
+            st.textContent = "지정가 주문에는 가격이 필요합니다.";
+            st.classList.add("error");
+            st.classList.remove("ok");
+          }
+          return;
+        }
+        body.volume = String(volume);
+        body.price = String(Math.round(price));
+      } else if (apiOrd === "price") {
+        const total = parseInputDecimal(tEl?.value);
+        if (!Number.isFinite(total) || total <= 0) {
+          if (st) {
+            st.textContent = "시장가 매수에는 주문 금액(KRW)이 필요합니다.";
+            st.classList.add("error");
+            st.classList.remove("ok");
+          }
+          return;
+        }
+        body.price = String(Math.round(total));
+      } else {
+        const volume = parseInputDecimal(vEl?.value);
+        if (!Number.isFinite(volume) || volume <= 0) {
+          if (st) {
+            st.textContent = "시장가 매도에는 수량이 필요합니다.";
+            st.classList.add("error");
+            st.classList.remove("ok");
+          }
+          return;
+        }
+        body.volume = String(volume);
+      }
+
+      if (st) {
+        st.textContent = "주문 전송 중…";
+        st.classList.remove("error", "ok");
+      }
+
+      try {
+        const res = await fetch("/api/exchanges/upbit/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const raw = await res.text();
+        if (!res.ok) {
+          throw new Error(raw || res.statusText);
+        }
+        if (st) {
+          st.textContent = "주문 접수됨 · " + new Date().toLocaleTimeString("ko-KR");
+          st.classList.add("ok");
+          st.classList.remove("error");
+        }
+        loadUpbitBalance();
+        loadUpbit();
+      } catch (e) {
+        if (st) {
+          st.textContent = "오류: " + e.message;
+          st.classList.add("error");
+          st.classList.remove("ok");
+        }
+      }
+    }
+
+    function initOrderForm() {
+      const msel = document.getElementById("upbit-order-market");
+      if (!msel) return;
+      msel.innerHTML = "";
+      for (const m of UPBIT_MARKETS) {
+        const o = document.createElement("option");
+        o.value = m;
+        o.textContent = m;
+        msel.appendChild(o);
+      }
+
+      document.querySelectorAll(".order-tabs-inner [data-order-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".order-tabs-inner [data-order-tab]")
+            .forEach((b) => {
+              const on = b === btn;
+              b.classList.toggle("active", on);
+              b.setAttribute("aria-selected", on ? "true" : "false");
+            });
+          orderUpdateLabelsAndSubmit();
+          orderApplyRowVisibility();
+          orderRefreshAvailable();
+        });
+      });
+
+      document.querySelectorAll("#order-ord-type-seg [data-ord-type]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("#order-ord-type-seg [data-ord-type]").forEach((b) => {
+            b.classList.toggle("active", b === btn);
+          });
+          orderApplyRowVisibility();
+          orderResetInputs();
+        });
+      });
+
+      ["order-price-input", "order-volume-input", "order-total-input"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const src =
+          id === "order-price-input" ? "price" : id === "order-volume-input" ? "volume" : "total";
+        el.addEventListener("input", () => orderRecalcFrom(src));
+      });
+
+      document.getElementById("order-price-plus")?.addEventListener("click", () => {
+        const inp = document.getElementById("order-price-input");
+        if (!inp) return;
+        let p = parseInputDecimal(inp.value);
+        if (!Number.isFinite(p) || p <= 0) {
+          orderSyncPriceFromTicker();
+          p = parseInputDecimal(inp.value);
+        }
+        const step = orderKrwPriceStep(p);
+        inp.value = String(Math.round((Number.isFinite(p) ? p : 0) + step));
+        orderRecalcFrom("price");
+      });
+      document.getElementById("order-price-minus")?.addEventListener("click", () => {
+        const inp = document.getElementById("order-price-input");
+        if (!inp) return;
+        let p = parseInputDecimal(inp.value);
+        if (!Number.isFinite(p) || p <= 0) return;
+        const step = orderKrwPriceStep(p);
+        inp.value = String(Math.max(0, Math.round(p - step)));
+        orderRecalcFrom("price");
+      });
+
+      document.querySelectorAll("#order-pct-row [data-pct]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const v = parseInt(btn.dataset.pct, 10);
+          orderApplyPct(Number.isFinite(v) ? v : 0);
+          const ui = orderGetUiOrdType();
+          const side = orderGetSide();
+          if (ui === "limit") {
+            if (side === "bid") orderRecalcFrom("total");
+            else orderRecalcFrom("volume");
+          }
+        });
+      });
+
+      document.getElementById("order-reset")?.addEventListener("click", orderResetInputs);
+      document.getElementById("order-submit")?.addEventListener("click", orderSubmit);
+
+      orderUpdateLabelsAndSubmit();
+      orderApplyRowVisibility();
+      orderRefreshAvailable();
+      orderSyncPriceFromTicker();
     }
 
     async function loadUpbit() {
@@ -504,6 +1315,11 @@
           throw new Error(t || res.statusText);
         }
         const data = await res.json();
+        upbitTickerByMarket = Object.fromEntries(
+          data.map((q) => [q.market, q])
+        );
+        orderSyncPriceFromTicker();
+        orderRefreshAvailable();
         status.textContent = "마지막 조회: " + new Date().toLocaleTimeString("ko-KR");
 
         if (!data.length) {
@@ -542,6 +1358,8 @@
             <tbody>${rows}</tbody>
           </table>`;
       } catch (e) {
+        upbitTickerByMarket = {};
+        orderRefreshAvailable();
         status.textContent = "오류: " + e.message;
         status.classList.add("error");
         wrap.innerHTML = "";
@@ -829,6 +1647,26 @@
       }
     }
 
+    /** 호가 테이블 스크롤을 `data-ob-anchor-row` 행이 세로 중앙에 오도록 맞춤 */
+    function scrollOrderbookToAnchorRow(scrollEl) {
+      if (!scrollEl) return;
+      const idx = parseInt(scrollEl.dataset.obAnchorRow, 10);
+      if (!Number.isFinite(idx) || idx < 0) return;
+      const tbody = scrollEl.querySelector("tbody");
+      if (!tbody) return;
+      const row = tbody.children[idx];
+      if (!row) return;
+      const rowRect = row.getBoundingClientRect();
+      const scRect = scrollEl.getBoundingClientRect();
+      const nextTop =
+        scrollEl.scrollTop +
+        (rowRect.top - scRect.top) -
+        scrollEl.clientHeight / 2 +
+        rowRect.height / 2;
+      const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+      scrollEl.scrollTop = Math.max(0, Math.min(nextTop, maxScroll));
+    }
+
     async function loadOrderbook() {
       const status = document.getElementById("upbit-ob-status");
       const wrap = document.getElementById("upbit-ob-wrap");
@@ -865,6 +1703,28 @@
             const ap = asNum(u.ask_price);
             if (Number.isFinite(bp)) bestBid = Math.max(bestBid, bp);
             if (Number.isFinite(ap)) bestAsk = Math.min(bestAsk, ap);
+          }
+
+          let anchorRowIdx = merged.length
+            ? Math.floor((merged.length - 1) / 2)
+            : 0;
+          if (
+            merged.length > 0 &&
+            Number.isFinite(bestBid) &&
+            Number.isFinite(bestAsk) &&
+            bestAsk > bestBid
+          ) {
+            const midPrice = (bestBid + bestAsk) / 2;
+            let bestI = 0;
+            let bestDist = Infinity;
+            merged.forEach((r, i) => {
+              const d = Math.abs(r.price - midPrice);
+              if (d < bestDist) {
+                bestDist = d;
+                bestI = i;
+              }
+            });
+            anchorRowIdx = bestI;
           }
 
           const rows = merged
@@ -909,7 +1769,7 @@
                 · 매수 잔량 합계 <strong class="bid-head">${fmtDec(book.total_bid_size)}</strong>
                 ${spreadTxt}
               </p>
-              <div class="ob-table-wrap">
+              <div class="ob-table-wrap" data-ob-anchor-row="${anchorRowIdx}">
                 <table class="ob-table ob-merged">
                   <thead>
                     <tr>
@@ -925,10 +1785,48 @@
         });
 
         wrap.innerHTML = parts.join("");
+        requestAnimationFrame(() => {
+          wrap.querySelectorAll(".ob-table-wrap[data-ob-anchor-row]").forEach(
+            (scrollEl) => {
+              scrollOrderbookToAnchorRow(scrollEl);
+            }
+          );
+        });
       } catch (e) {
         status.textContent = "오류: " + e.message;
         status.classList.add("error");
         wrap.innerHTML = "";
+      }
+    }
+
+    const UPBIT_MARKET_SELECT_IDS = [
+      "upbit-candle-market",
+      "upbit-ob-market",
+      "upbit-order-market",
+    ];
+
+    /** 분봉·오더북·주문 마켓을 동일 값으로 맞추고 관련 데이터를 갱신합니다. */
+    function syncUpbitMarketAcrossUi(market) {
+      const m = String(market || "").trim();
+      if (!m) return;
+      for (const id of UPBIT_MARKET_SELECT_IDS) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if ([...el.options].some((o) => o.value === m)) el.value = m;
+      }
+      loadOrderbook();
+      loadMinuteCandles();
+      orderUpdateLabelsAndSubmit();
+      orderRefreshAvailable();
+      orderSyncPriceFromTicker({ force: true });
+      orderRecalcFrom("price");
+    }
+
+    function initUpbitMarketSync() {
+      for (const id of UPBIT_MARKET_SELECT_IDS) {
+        document.getElementById(id)?.addEventListener("change", (e) => {
+          syncUpbitMarketAcrossUi(e.target.value);
+        });
       }
     }
 
@@ -960,9 +1858,6 @@
       .getElementById("btn-upbit-ob-refresh")
       .addEventListener("click", loadOrderbook);
     document
-      .getElementById("upbit-ob-market")
-      .addEventListener("change", loadOrderbook);
-    document
       .getElementById("btn-upbit-candle-refresh")
       .addEventListener("click", loadMinuteCandles);
     document
@@ -977,6 +1872,8 @@
 
     initOrderbookMarketSelect();
     initCandleControls();
+    initOrderForm();
+    initUpbitMarketSync();
     activateTab("upbit");
   </script>
 </body>
