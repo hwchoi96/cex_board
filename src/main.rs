@@ -8,7 +8,7 @@ use clap::Parser;
 use crate::upbit_client::UpbitPublicClient;
 use crate::web::{create_router, AppState};
 
-mod markets;
+mod constants;
 mod upbit_auth;
 mod upbit_client;
 mod upbit_model;

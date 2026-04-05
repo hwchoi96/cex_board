@@ -3,15 +3,17 @@ use std::sync::Arc;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Json},
-    routing::get,
+    response::{Html, IntoResponse},
+    routing::{get, post},
+    Json,
     Router,
 };
+use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::markets::DEFAULT_UPBIT_MARKETS;
+use crate::constants::{BuySellType, ContStrategy, OrderType, DEFAULT_UPBIT_MARKETS};
 use crate::upbit_client::{UpbitError, UpbitPublicClient};
-use crate::upbit_model::{UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook};
+use crate::upbit_model::{UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest};
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
 pub const MINUTE_CANDLE_UNITS: &[i32] = &[1, 3, 5, 15, 30, 60, 240];
@@ -28,7 +30,99 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/exchanges/upbit/orderbook", get(upbit_orderbook))
         .route("/api/exchanges/upbit/candles/minutes", get(upbit_minute_candle))
         .route("/api/exchanges/upbit/balance", get(upbit_my_balance))
+        .route("/api/exchanges/upbit/orders", post(upbit_order))
         .with_state(state)
+}
+
+/// https://docs.upbit.com/kr/reference/new-order
+fn validate_new_order_request(body: &UpbitOrderRequest) -> Result<(), &'static str> {
+    if body.market.trim().is_empty() {
+        return Err("market은 비어 있을 수 없습니다.");
+    }
+    if !DEFAULT_UPBIT_MARKETS
+        .iter()
+        .any(|&m| m == body.market.as_str())
+    {
+        return Err("market은 대시보드에서 쓰는 KRW 페어 목록 중 하나여야 합니다.");
+    }
+    if let Some(id) = &body.identifier {
+        if id.trim().is_empty() {
+            return Err("identifier를 보낼 때는 비어 있지 않은 문자열이어야 합니다.");
+        }
+    }
+    if matches!(body.time_in_force, Some(ContStrategy::PostOnly)) && body.smp_type.is_some() {
+        return Err("post_only는 smp_type과 함께 사용할 수 없습니다.");
+    }
+    if matches!(body.time_in_force, Some(ContStrategy::PostOnly)) && body.ord_type != OrderType::LIMIT {
+        return Err("post_only는 지정가(limit)에서만 사용할 수 있습니다.");
+    }
+
+    let pos = |d: &Option<Decimal>| matches!(d, Some(x) if *x > Decimal::ZERO);
+
+    match body.ord_type {
+        OrderType::LIMIT => {
+            if !pos(&body.volume) {
+                return Err("지정가(limit)는 volume이 필요합니다.");
+            }
+            if !pos(&body.price) {
+                return Err("지정가(limit)는 price가 필요합니다.");
+            }
+        }
+        OrderType::PRICE => {
+            if body.time_in_force.is_some() {
+                return Err("시장가 매수(ord_type=price)에는 time_in_force를 보내면 안 됩니다.");
+            }
+            if body.side != BuySellType::Buy {
+                return Err("시장가 매수(ord_type=price)는 side가 bid여야 합니다.");
+            }
+            if !pos(&body.price) {
+                return Err("시장가 매수는 주문 총액 price가 필요합니다.");
+            }
+            if body.volume.is_some() {
+                return Err("시장가 매수에는 volume을 보내면 안 됩니다.");
+            }
+        }
+        OrderType::MARKET => {
+            if body.time_in_force.is_some() {
+                return Err("시장가 매도(ord_type=market)에는 time_in_force를 보내면 안 됩니다.");
+            }
+            if body.side != BuySellType::Sell {
+                return Err("시장가 매도(ord_type=market)는 side가 ask여야 합니다.");
+            }
+            if !pos(&body.volume) {
+                return Err("시장가 매도는 volume이 필요합니다.");
+            }
+            if body.price.is_some() {
+                return Err("시장가 매도에는 price를 보내면 안 됩니다.");
+            }
+        }
+        OrderType::BEST => {
+            match body.side {
+                BuySellType::Buy => {
+                    if !pos(&body.price) {
+                        return Err("최유리 매수(best·bid)는 주문 총액 price가 필요합니다.");
+                    }
+                    if body.volume.is_some() {
+                        return Err("최유리 매수에는 volume을 보내면 안 됩니다.");
+                    }
+                }
+                BuySellType::Sell => {
+                    if !pos(&body.volume) {
+                        return Err("최유리 매도(best·ask)는 volume이 필요합니다.");
+                    }
+                    if body.price.is_some() {
+                        return Err("최유리 매도에는 price를 보내면 안 됩니다.");
+                    }
+                }
+            }
+            match body.time_in_force {
+                Some(ContStrategy::IOC) | Some(ContStrategy::FOK) => {}
+                _ => return Err("최유리(best)는 time_in_force에 ioc 또는 fok가 필요합니다."),
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// `markets`: 쉼표로 구분 (예: `KRW-BTC` 또는 `KRW-BTC,KRW-ETH`). 없으면 `KRW-BTC`.
@@ -120,6 +214,27 @@ async fn upbit_minute_candle(
     {
         Ok(rows) => Json::<Vec<UpbitMinuteCandle>>(rows).into_response(),
         Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    }
+}
+
+async fn upbit_order(
+    State(state): State<AppState>,
+    Json(body): Json<UpbitOrderRequest>,
+) -> impl IntoResponse {
+    if let Err(msg) = validate_new_order_request(&body) {
+        return (StatusCode::BAD_REQUEST, msg).into_response();
+    }
+
+    match state.upbit.order(body).await {
+        Ok(rows) => Json(rows).into_response(),
+        Err(e) => {
+            let status = if matches!(e, UpbitError::AuthorizationError) {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::BAD_GATEWAY
+            };
+            (status, e.to_string()).into_response()
+        }
     }
 }
 
