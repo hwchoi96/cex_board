@@ -17,3 +17,6 @@ cargo-lock.json  # (주의: 라이브러리 프로젝트일 경우에만 해당,
 
 # --- 환경 변수 (보안 주의) ---
 .env
+
+# 로컬 API 키 (config.example.toml 을 복사해 사용)
+config.toml

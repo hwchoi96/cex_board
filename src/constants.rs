@@ -1,14 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_UPBIT_MARKETS: &[&str] = &[
-    "KRW-BTC",
-    "KRW-ETH",
-    "KRW-USDT",
-    "KRW-DOGE",
-    "KRW-XRP",
-    "KRW-ONG",
-];
-
 /// 업비트 주문 `side`: Rust에서는 `Buy` / `Sell`, API·JSON에서는 `bid` / `ask`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BuySellType {

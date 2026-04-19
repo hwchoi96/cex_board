@@ -1,0 +1,4 @@
+# 이 파일을 `config.toml`로 복사한 뒤 키를 넣으세요. `config.toml`은 git에 올리지 마세요.
+[Upbit]
+access_key = ""
+secret_key = ""
