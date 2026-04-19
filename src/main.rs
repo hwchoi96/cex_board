@@ -5,13 +5,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use clap::Parser;
-use crate::upbit_client::UpbitPublicClient;
+use crate::exchanges::upbit::UpbitPublicClient;
 use crate::web::{create_router, AppState};
 
 mod constants;
-mod upbit_auth;
-mod upbit_client;
-mod upbit_model;
+mod exchanges;
 mod web;
 
 /// 웹 대시보드·API 바인드 포트

@@ -12,8 +12,10 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use crate::constants::{BuySellType, ContStrategy, OrderType, DEFAULT_UPBIT_MARKETS};
-use crate::upbit_client::{UpbitError, UpbitPublicClient};
-use crate::upbit_model::{UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest};
+use crate::exchanges::upbit::{
+    UpbitError, UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest,
+    UpbitPublicClient,
+};
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
 pub const MINUTE_CANDLE_UNITS: &[i32] = &[1, 3, 5, 15, 30, 60, 240];

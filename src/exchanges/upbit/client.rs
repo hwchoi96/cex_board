@@ -4,8 +4,8 @@ use reqwest::Client;
 
 use serde_json::Value;
 
-use crate::upbit_auth::{issue_upbit_jwt, post_body_to_query_string_for_jwt};
-use crate::upbit_model::{
+use super::auth::{issue_upbit_jwt, post_body_to_query_string_for_jwt};
+use super::model::{
     UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest, UpbitPairQuote,
 };
 
@@ -286,7 +286,7 @@ impl UpbitPublicClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::upbit_model::Change;
+    use crate::exchanges::upbit::model::Change;
 
     #[test]
     fn normalize_strips_wrapping_quotes_via_new() {
