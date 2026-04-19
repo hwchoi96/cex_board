@@ -8,6 +8,7 @@ use clap::Parser;
 use crate::exchanges::upbit::UpbitPublicClient;
 use crate::web::{create_router, AppState};
 
+mod config;
 mod constants;
 mod exchanges;
 mod web;
@@ -18,25 +19,34 @@ const HTTP_PORT: u16 = 9090;
 #[derive(Parser)]
 #[command(name = "cex_board")]
 struct Args {
-    /// Upbit Open API Access Key. `secret_key`와 함께 있어야 Exchange API(JWT) 사용.
+    /// 설정 파일 경로 (기본: `config.toml`, 워킹 디렉터리 기준).
+    #[arg(long = "config", default_value = "config.toml", value_name = "PATH")]
+    config_path: std::path::PathBuf,
+    /// `config.toml`의 Upbit access_key를 덮어씁니다.
     #[arg(long = "access_key", value_name = "ACCESS_KEY")]
     access_key: Option<String>,
-    /// Upbit Open API Secret Key. `=` 형식 권장: `--secret_key=...` (값이 `-`로 시작할 때).
+    /// `config.toml`의 Upbit secret_key를 덮어씁니다. `=` 형식 권장: `--secret_key=...`
     #[arg(long = "secret_key", value_name = "SECRET_KEY")]
     secret_key: Option<String>,
 }
 
-fn key_from_cli_or_env(cli: Option<String>, env_name: &str) -> Option<String> {
-    cli.or_else(|| std::env::var(env_name).ok())
-        .filter(|s| !s.trim().is_empty())
+fn merge_key(cli: Option<String>, file: Option<String>) -> Option<String> {
+    cli.or(file).filter(|s| !s.trim().is_empty())
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = Args::parse();
-    // IDE에 빈 `UPBIT_*`만 있고 clap이 env를 먹는 경우 등을 피하기 위해, CLI·환경변수는 여기서만 병합합니다.
-    let access_key = key_from_cli_or_env(args.access_key, "UPBIT_ACCESS_KEY");
-    let secret_key = key_from_cli_or_env(args.secret_key, "UPBIT_SECRET_KEY");
+    let cfg = crate::config::load_config(&args.config_path)?;
+    if !args.config_path.exists() {
+        eprintln!(
+            "[cex_board] 설정 파일 없음: {:?} — [Upbit] 키 없이 기동합니다.",
+            args.config_path
+        );
+    }
+    let upbit_cfg = cfg.upbit.unwrap_or_default();
+    let access_key = merge_key(args.access_key, upbit_cfg.access_key);
+    let secret_key = merge_key(args.secret_key, upbit_cfg.secret_key);
 
     let upbit = Arc::new(UpbitPublicClient::new(access_key, secret_key)?);
 
@@ -57,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if upbit.access_key.is_some() && upbit.secret_key.is_some() {
             "키 로드됨 (JWT 사용). invalid_access_key면 대시보드의 Access/Secret이 뒤바뀌지 않았는지 확인."
         } else {
-            "비활성 — CLI·환경변수 UPBIT_ACCESS_KEY/UPBIT_SECRET_KEY 없음. 자산 조회는 401."
+            "비활성 — config.toml [Upbit] access_key/secret_key 없음. 자산 조회는 401."
         }
     );
 

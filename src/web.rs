@@ -11,10 +11,10 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::constants::{BuySellType, ContStrategy, OrderType, DEFAULT_UPBIT_MARKETS};
+use crate::constants::{BuySellType, ContStrategy, OrderType};
 use crate::exchanges::upbit::{
     UpbitError, UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest,
-    UpbitPublicClient,
+    UpbitPairQuote, UpbitPublicClient, UpbitTradePair,
 };
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
@@ -32,6 +32,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/exchanges/upbit/orderbook", get(upbit_orderbook))
         .route("/api/exchanges/upbit/candles/minutes", get(upbit_minute_candle))
         .route("/api/exchanges/upbit/balance", get(upbit_my_balance))
+        .route("/api/exchanges/upbit/markets", get(upbit_trade_pair))
         .route("/api/exchanges/upbit/orders", post(upbit_order))
         .with_state(state)
 }
@@ -40,12 +41,6 @@ pub fn create_router(state: AppState) -> Router {
 fn validate_new_order_request(body: &UpbitOrderRequest) -> Result<(), &'static str> {
     if body.market.trim().is_empty() {
         return Err("market은 비어 있을 수 없습니다.");
-    }
-    if !DEFAULT_UPBIT_MARKETS
-        .iter()
-        .any(|&m| m == body.market.as_str())
-    {
-        return Err("market은 대시보드에서 쓰는 KRW 페어 목록 중 하나여야 합니다.");
     }
     if let Some(id) = &body.identifier {
         if id.trim().is_empty() {
@@ -148,7 +143,15 @@ async fn index() -> Html<&'static str> {
 }
 
 async fn upbit_tickers(State(state): State<AppState>) -> impl IntoResponse {
-    match state.upbit.get_quote_all(DEFAULT_UPBIT_MARKETS).await {
+    let codes = match state.upbit.krw_market_codes().await {
+        Ok(c) => c,
+        Err(e) => return (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    };
+    if codes.is_empty() {
+        return Json(Vec::<UpbitPairQuote>::new()).into_response();
+    }
+    let refs: Vec<&str> = codes.iter().map(|s| s.as_str()).collect();
+    match state.upbit.get_quote_all(&refs).await {
         Ok(rows) => Json(rows).into_response(),
         Err(e) => (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
     }
@@ -182,13 +185,14 @@ async fn upbit_minute_candle(
     State(state): State<AppState>,
     Query(q): Query<UpbitMinuteCandleQuery>,
 ) -> impl IntoResponse {
-    if !DEFAULT_UPBIT_MARKETS
-        .iter()
-        .any(|&m| m == q.market.as_str())
-    {
+    let krw = match state.upbit.krw_market_codes().await {
+        Ok(v) => v,
+        Err(e) => return (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    };
+    if !krw.iter().any(|m| m == &q.market) {
         return (
             StatusCode::BAD_REQUEST,
-            format!("market은 {DEFAULT_UPBIT_MARKETS:?} 중 하나여야 합니다."),
+            "market은 업비트 KRW 마켓 목록에 있는 코드여야 합니다.",
         )
             .into_response();
     }
@@ -226,6 +230,17 @@ async fn upbit_order(
     if let Err(msg) = validate_new_order_request(&body) {
         return (StatusCode::BAD_REQUEST, msg).into_response();
     }
+    let krw = match state.upbit.krw_market_codes().await {
+        Ok(v) => v,
+        Err(e) => return (StatusCode::BAD_GATEWAY, e.to_string()).into_response(),
+    };
+    if !krw.iter().any(|m| m == &body.market) {
+        return (
+            StatusCode::BAD_REQUEST,
+            "market은 업비트 KRW 마켓 목록에 있는 코드여야 합니다.",
+        )
+            .into_response();
+    }
 
     match state.upbit.order(body).await {
         Ok(rows) => Json(rows).into_response(),
@@ -243,6 +258,21 @@ async fn upbit_order(
 async fn upbit_my_balance(State(state): State<AppState>) -> impl IntoResponse {
     match state.upbit.get_my_balance().await {
         Ok(rows) => Json::<Vec<UpbitMyBalance>>(rows).into_response(),
+        Err(e) => {
+            let status = if matches!(e, UpbitError::AuthorizationError) {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::BAD_GATEWAY
+            };
+            (status, e.to_string()).into_response()
+        }
+    }
+}
+
+async fn upbit_trade_pair(State(state): State<AppState>) -> impl IntoResponse {
+
+    match state.upbit.get_trading_pair().await {
+        Ok(rows) => Json::<Vec<UpbitTradePair>>(rows).into_response(),
         Err(e) => {
             let status = if matches!(e, UpbitError::AuthorizationError) {
                 StatusCode::UNAUTHORIZED

@@ -3,6 +3,35 @@ use serde::{Deserialize, Serialize};
 
 use crate::constants::{BuySellType, ContStrategy, OrderType, SmpType};
 
+/// `GET /v1/market/all` 한 행 — [문서](https://docs.upbit.com/kr/reference/list-market-all)
+///
+/// 실제 JSON에는 `market`·`korean_name`·`english_name`만 있고 `market_event`는 없다.
+/// 다른 엔드포인트나 향후 확장을 위해 `market_event`는 기본값으로 채운다.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct UpbitTradePair {
+    pub market: String,
+    pub korean_name: String,
+    pub english_name: String,
+    #[serde(default)]
+    pub market_event: MarketEvent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub struct MarketEvent {
+    #[serde(default)]
+    pub warning: bool,
+    #[serde(rename = "PRICE_FLUCTUATIONS", default)]
+    pub price_fluctuation: bool,
+    #[serde(rename = "TRADING_VOLUME_SOARING", default)]
+    pub trading_volume_soaring: bool,
+    #[serde(rename = "DEPOSIT_AMOUNT_SOARING", default)]
+    pub deposit_amount_soaring: bool,
+    #[serde(rename = "GLOBAL_PRICE_DIFFERENCES", default)]
+    pub global_price_differences: bool,
+    #[serde(rename = "CONCENTRATION_OF_SMALL_ACCOUNTS", default)]
+    pub concentration_of_small_accounts: bool,
+}
+
 /// API 문자열 `EVEN` / `RISE` / `FALL` 과 매칭
 /// https://docs.upbit.com/kr/reference/list-tickers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -98,4 +127,17 @@ pub struct UpbitOrderRequest {
     pub smp_type: Option<SmpType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub identifier: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn market_all_json_has_no_market_event_field() {
+        let j = r#"{"market":"KRW-BTC","korean_name":"비트코인","english_name":"Bitcoin"}"#;
+        let r: UpbitTradePair = serde_json::from_str(j).unwrap();
+        assert_eq!(r.market, "KRW-BTC");
+        assert_eq!(r.market_event, MarketEvent::default());
+    }
 }

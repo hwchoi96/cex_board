@@ -718,7 +718,7 @@
 
       <h2 class="section-title">자산 현황</h2>
       <p class="balance-hint">
-        서버를 <code>--access_key</code> / <code>--secret_key</code>로 실행하면 JWT가 생성되어 계좌 조회가 됩니다.
+        프로젝트 루트 <code>config.toml</code>의 <code>[Upbit]</code>에 access_key·secret_key를 넣으면 JWT가 생성되어 계좌 조회가 됩니다.
         ([업비트 인증](https://docs.upbit.com/kr/reference/auth))
       </p>
       <div class="toolbar">
@@ -740,9 +740,8 @@
   </main>
 
   <script>
-    const UPBIT_MARKETS = [
-      "KRW-BTC", "KRW-ETH", "KRW-USDT", "KRW-DOGE", "KRW-XRP", "KRW-ONG",
-    ];
+    /** `/api/exchanges/upbit/markets` 응답 중 `KRW-` 마켓 (코인명 표시용) */
+    let upbitKrwMarketRows = [];
 
     /** 백엔드 `MINUTE_CANDLE_UNITS` 와 동일 */
     const MINUTE_UNITS = [
@@ -787,6 +786,49 @@
       return "보합";
     }
 
+    function getDefaultUpbitMarket() {
+      return upbitKrwMarketRows[0]?.market || "";
+    }
+
+    async function loadUpbitKrwMarkets() {
+      const res = await fetch("/api/exchanges/upbit/markets");
+      const raw = await res.text();
+      if (!res.ok) {
+        throw new Error(raw || res.statusText);
+      }
+      const data = JSON.parse(raw);
+      const list = Array.isArray(data) ? data : [];
+      upbitKrwMarketRows = list
+        .filter(
+          (x) =>
+            x &&
+            typeof x.market === "string" &&
+            x.market.startsWith("KRW-")
+        )
+        .sort((a, b) => a.market.localeCompare(b.market, "ko"));
+    }
+
+    function fillUpbitMarketSelects() {
+      const ids = [
+        "upbit-candle-market",
+        "upbit-ob-market",
+        "upbit-order-market",
+      ];
+      for (const id of ids) {
+        const sel = document.getElementById(id);
+        if (!sel) continue;
+        sel.innerHTML = "";
+        for (const row of upbitKrwMarketRows) {
+          const o = document.createElement("option");
+          o.value = row.market;
+          o.textContent = row.korean_name
+            ? `${row.korean_name} (${row.market})`
+            : row.market;
+          sel.appendChild(o);
+        }
+      }
+    }
+
     function sortBalances(rows) {
       return [...rows].sort((a, b) => {
         if (a.currency === "KRW" && b.currency !== "KRW") return -1;
@@ -810,7 +852,7 @@
             upbitBalanceCache = [];
             orderRefreshAvailable();
             status.textContent =
-              "인증 필요: 서버를 --access_key 와 --secret_key 로 실행했는지 확인하세요.";
+              "인증 필요: config.toml [Upbit] 키를 설정했는지 확인하세요.";
             status.classList.add("error");
             wrap.innerHTML = "";
             return;
@@ -905,7 +947,8 @@
       if (!el) return;
 
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const coin = parseMarketCoin(market);
       const side = orderGetSide();
 
@@ -937,7 +980,8 @@
 
     function orderUpdateLabelsAndSubmit() {
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const coin = parseMarketCoin(market);
       const side = orderGetSide();
 
@@ -990,7 +1034,8 @@
       if (!inp) return;
       if (!force && document.activeElement === inp) return;
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const tr = upbitTickerByMarket[market];
       if (!tr) return;
       const p = asNum(tr.trade_price);
@@ -1058,7 +1103,8 @@
       const uiOrd = orderGetUiOrdType();
       const side = orderGetSide();
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const coin = parseMarketCoin(market);
       const pEl = document.getElementById("order-price-input");
       const vEl = document.getElementById("order-volume-input");
@@ -1129,7 +1175,8 @@
     async function orderSubmit() {
       const st = document.getElementById("order-submit-status");
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const side = orderGetSide();
       const apiOrd = orderGetApiOrdType();
 
@@ -1218,13 +1265,6 @@
     function initOrderForm() {
       const msel = document.getElementById("upbit-order-market");
       if (!msel) return;
-      msel.innerHTML = "";
-      for (const m of UPBIT_MARKETS) {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        msel.appendChild(o);
-      }
 
       document.querySelectorAll(".order-tabs-inner [data-order-tab]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -1399,26 +1439,7 @@
       });
     }
 
-    function initOrderbookMarketSelect() {
-      const sel = document.getElementById("upbit-ob-market");
-      sel.innerHTML = "";
-      for (const m of UPBIT_MARKETS) {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        sel.appendChild(o);
-      }
-    }
-
     function initCandleControls() {
-      const msel = document.getElementById("upbit-candle-market");
-      msel.innerHTML = "";
-      for (const m of UPBIT_MARKETS) {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        msel.appendChild(o);
-      }
       const usel = document.getElementById("upbit-candle-unit");
       usel.innerHTML = "";
       for (const [u, label] of MINUTE_UNITS) {
@@ -1561,6 +1582,13 @@
         return;
       }
 
+      if (!String(market || "").trim()) {
+        status.textContent =
+          "마켓이 없습니다. /api/exchanges/upbit/markets 를 불러온 뒤 다시 시도하세요.";
+        status.classList.add("error");
+        return;
+      }
+
       status.textContent = "캔들 불러오는 중…";
       status.classList.remove("error");
       try {
@@ -1671,7 +1699,15 @@
       const status = document.getElementById("upbit-ob-status");
       const wrap = document.getElementById("upbit-ob-wrap");
       const sel = document.getElementById("upbit-ob-market");
-      const market = sel.value || "KRW-BTC";
+      const market = sel.value || getDefaultUpbitMarket();
+
+      if (!String(market || "").trim()) {
+        status.textContent =
+          "마켓이 없습니다. 마켓 목록 API를 확인한 뒤 다시 시도하세요.";
+        status.classList.add("error");
+        wrap.innerHTML = "";
+        return;
+      }
 
       status.textContent = "오더북 불러오는 중…";
       status.classList.remove("error");
@@ -1812,7 +1848,9 @@
       for (const id of UPBIT_MARKET_SELECT_IDS) {
         const el = document.getElementById(id);
         if (!el) continue;
-        if ([...el.options].some((o) => o.value === m)) el.value = m;
+        if ([...el.options].some((o) => o.value === m)) {
+          el.value = m;
+        }
       }
       loadOrderbook();
       loadMinuteCandles();
@@ -1870,11 +1908,23 @@
         upbitCandleChart.applyOptions({ width: host.clientWidth });
     });
 
-    initOrderbookMarketSelect();
-    initCandleControls();
-    initOrderForm();
-    initUpbitMarketSync();
-    activateTab("upbit");
+    (async function bootstrapUpbit() {
+      try {
+        await loadUpbitKrwMarkets();
+      } catch (e) {
+        const st = document.getElementById("upbit-status");
+        if (st) {
+          st.textContent = "마켓 목록을 불러오지 못했습니다: " + e.message;
+          st.classList.add("error");
+        }
+        upbitKrwMarketRows = [];
+      }
+      fillUpbitMarketSelects();
+      initCandleControls();
+      initOrderForm();
+      initUpbitMarketSync();
+      activateTab("upbit");
+    })();
   </script>
 </body>
 </html>

@@ -5,9 +5,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 use super::auth::{issue_upbit_jwt, post_body_to_query_string_for_jwt};
-use super::model::{
-    UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest, UpbitPairQuote,
-};
+use super::model::{UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest, UpbitPairQuote, UpbitTradePair};
 
 /// 업비트 open api base url
 const BASE_URL: &str = "https://api.upbit.com";
@@ -58,8 +56,8 @@ pub enum UpbitError {
     EmptyMarkets,
     #[error(
         "Access Key / Secret Key가 이 서버 프로세스에 없습니다. \
-         `cargo run -- --access_key ... --secret_key ...` 또는 UPBIT_ACCESS_KEY/UPBIT_SECRET_KEY로 기동했는지 확인하세요. \
-         (IDE에서 Run만 누르면 인자가 빠지는 경우가 많습니다.)"
+         `config.toml`의 `[Upbit]` access_key·secret_key를 설정했는지 확인하세요. \
+         (또는 `--access_key` / `--secret_key`로 덮어쓸 수 있습니다.)"
     )]
     AuthorizationError,
     #[error("JWT 발급 실패: {0}")]
@@ -158,6 +156,40 @@ impl UpbitPublicClient {
             access_key,
             secret_key,
         })
+    }
+
+    pub async fn get_trading_pair(&self) -> Result<Vec<UpbitTradePair>, UpbitError> {
+
+        let url = format!("{}/v1/market/all", self.url);
+
+        let response = self.client.get(&url).send().await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            let body = response.text().await?;
+
+            return Err(UpbitError::ApiError {
+                status,
+                body: Some(body),
+            });
+        }
+
+        let trading_pair = response.json().await?;
+
+        Ok(trading_pair)
+    }
+
+    /// `v1/market/all` 기준 KRW 마켓 코드 (`KRW-` 접두사), 정렬·중복 제거.
+    pub async fn krw_market_codes(&self) -> Result<Vec<String>, UpbitError> {
+        let all = self.get_trading_pair().await?;
+        let mut out: Vec<String> = all
+            .into_iter()
+            .map(|m| m.market)
+            .filter(|m| m.starts_with("KRW-"))
+            .collect();
+        out.sort();
+        out.dedup();
+        Ok(out)
     }
 
     /// 업비트 마켓-페어 시세 정보 조회
