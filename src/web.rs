@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Query, State},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Query, State,
+    },
     http::StatusCode,
     response::{Html, IntoResponse},
     routing::{get, post},
@@ -10,11 +13,12 @@ use axum::{
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;
+use tokio::sync::broadcast;
 
 use crate::constants::{BuySellType, ContStrategy, OrderType};
 use crate::exchanges::upbit::{
     UpbitError, UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest,
-    UpbitPairQuote, UpbitPublicClient, UpbitTradePair,
+    UpbitPairQuote, UpbitPublicClient, UpbitTradePair, UpbitWsTicker,
 };
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
@@ -23,11 +27,14 @@ pub const MINUTE_CANDLE_UNITS: &[i32] = &[1, 3, 5, 15, 30, 60, 240];
 #[derive(Clone)]
 pub struct AppState {
     pub upbit: Arc<UpbitPublicClient>,
+    /// 업비트 WS 티커를 브라우저 등 여러 구독자에게 fan-out
+    pub ticker_broadcast: broadcast::Sender<UpbitWsTicker>,
 }
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/ws/upbit-ticker", get(ws_upbit_ticker))
         .route("/api/exchanges/upbit/ticker", get(upbit_tickers))
         .route("/api/exchanges/upbit/orderbook", get(upbit_orderbook))
         .route("/api/exchanges/upbit/candles/minutes", get(upbit_minute_candle))
@@ -140,6 +147,54 @@ async fn index() -> Html<&'static str> {
         env!("CARGO_MANIFEST_DIR"),
         "/static/index.html"
     )))
+}
+
+/// 브라우저 클라이언트 → 업비트에서 받은 `UpbitWsTicker` JSON(텍스트 프레임) 스트림
+async fn ws_upbit_ticker(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_upbit_ticker_ws(socket, state))
+}
+
+async fn handle_upbit_ticker_ws(mut socket: WebSocket, state: AppState) {
+    let mut rx = state.ticker_broadcast.subscribe();
+
+    loop {
+        tokio::select! {
+            recv = rx.recv() => {
+                match recv {
+                    Ok(t) => {
+                        let Ok(json) = serde_json::to_string(&t) else {
+                            continue;
+                        };
+                        if socket
+                            .send(Message::Text(json.into()))
+                            .await
+                            .is_err()
+                        {
+                            return;
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        /* 느린 클라이언트는 스킵 */
+                    }
+                    Err(broadcast::error::RecvError::Closed) => return,
+                }
+            }
+            inc = socket.recv() => {
+                match inc {
+                    None => return,
+                    Some(Ok(Message::Close(_))) => return,
+                    Some(Ok(Message::Ping(p))) => {
+                        let _ = socket.send(Message::Pong(p)).await;
+                    }
+                    Some(Ok(_)) => {}
+                    Some(Err(_)) => return,
+                }
+            }
+        }
+    }
 }
 
 async fn upbit_tickers(State(state): State<AppState>) -> impl IntoResponse {

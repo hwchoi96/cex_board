@@ -365,6 +365,7 @@ mod tests {
             "prev_closing_price": 49_500_000.0,
             "change": "RISE",
             "trade_volume": 123.45,
+            "acc_trade_price_24h": 99_999_000_000.0,
             "timestamp": 1680172800123_i64,
         }])
     }

@@ -4,9 +4,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use std::time::Duration;
+
 use clap::Parser;
-use crate::exchanges::upbit::UpbitPublicClient;
+use crate::exchanges::upbit::{run_quote_websocket_with_reconnect, UpbitPublicClient, UpbitWsTicker};
 use crate::web::{create_router, AppState};
+use tokio::sync::{broadcast, mpsc};
 
 mod config;
 mod constants;
@@ -55,8 +58,61 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         upbit.access_key.as_ref().map(String::len),
         upbit.secret_key.as_ref().map(String::len),
     );
+
+    let (ticker_mpsc_tx, mut ticker_mpsc_rx) = mpsc::channel::<UpbitWsTicker>(512);
+    let (ticker_broadcast, _) = broadcast::channel::<UpbitWsTicker>(1024);
+
+    let bcast = ticker_broadcast.clone();
+    tokio::spawn(async move {
+        while let Some(t) = ticker_mpsc_rx.recv().await {
+            let _ = bcast.send(t);
+        }
+    });
+
+    let upbit_ws = upbit.clone();
+    tokio::spawn(async move {
+        let mut pairs: Vec<String> = Vec::new();
+        for attempt in 0..30 {
+            match upbit_ws.krw_market_codes().await {
+                Ok(codes) if !codes.is_empty() => {
+                    pairs = codes.into_iter().map(|c| c.to_uppercase()).collect();
+                    eprintln!(
+                        "[cex_board] 업비트 WebSocket 티커: {}개 KRW 마켓 구독 (브라우저 ws://127.0.0.1:{}/ws/upbit-ticker)",
+                        pairs.len(),
+                        HTTP_PORT
+                    );
+                    break;
+                }
+                Ok(_) => {
+                    eprintln!(
+                        "[cex_board] KRW 마켓 목록이 비어 있음 — WS 구독 재시도 {}/30",
+                        attempt + 1
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[cex_board] KRW 마켓 목록 조회 실패 — WS 구독 재시도 {}/30: {}",
+                        attempt + 1,
+                        e
+                    );
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        if pairs.is_empty() {
+            eprintln!(
+                "[cex_board] 마켓 목록을 가져오지 못해 업비트 WS는 KRW-BTC만 구독합니다."
+            );
+            pairs.push("KRW-BTC".to_string());
+        }
+        if let Err(e) = run_quote_websocket_with_reconnect(pairs, ticker_mpsc_tx).await {
+            eprintln!("[cex_board] 업비트 WebSocket 태스크 종료: {e}");
+        }
+    });
+
     let app = create_router(AppState {
         upbit: upbit.clone(),
+        ticker_broadcast,
     });
 
     let addr = SocketAddr::from(([127, 0, 0, 1], HTTP_PORT));
