@@ -12,9 +12,13 @@
       --text: #e7ecf3;
       --muted: #8b9cb3;
       --accent: #3d8bfd;
+      /* 차트·호가 등 기존 팔레트 */
       --rise: #26a69a;
       --fall: #ef5350;
       --even: #90a4ae;
+      /* 업비트 시세 목록: 상승 빨강 · 하락 파랑 */
+      --upbit-up: #e84545;
+      --upbit-down: #1976d2;
     }
     * { box-sizing: border-box; }
     body {
@@ -77,7 +81,7 @@
     }
     main {
       padding: 1.25rem 1.5rem 2rem;
-      max-width: 1200px;
+      max-width: min(1800px, 100%);
       margin: 0 auto;
     }
     .panel { display: none; }
@@ -147,6 +151,9 @@
     .chg-rise { color: var(--rise); font-weight: 600; }
     .chg-fall { color: var(--fall); font-weight: 600; }
     .chg-even { color: var(--even); }
+    .ticker-up { color: var(--upbit-up); font-weight: 600; }
+    .ticker-down { color: var(--upbit-down); font-weight: 600; }
+    .ticker-even { color: var(--muted); }
     .num { font-variant-numeric: tabular-nums; }
     h2.section-title {
       font-size: 1rem;
@@ -579,6 +586,181 @@
     .order-row.hidden-row {
       display: none;
     }
+
+    .upbit-trading-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    /* 분봉 ~ 주문 카드 구간 오른쪽에 시세(절대 배치, JS로 top/height) */
+    .upbit-trade-layout {
+      position: relative;
+      min-height: 0;
+      /* 시세 패널 폭 (거래대금 열 등이 잘리지 않도록 여유) */
+      --upbit-ticker-sidebar-width: 380px;
+    }
+    .upbit-trade-layout-body {
+      min-width: 0;
+      padding-right: 0;
+    }
+    @media (min-width: 1101px) {
+      .upbit-trade-layout-body {
+        padding-right: calc(var(--upbit-ticker-sidebar-width) + 1.25rem);
+      }
+    }
+    .upbit-symbol-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.75rem 1.25rem;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.65rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .upbit-symbol-strip .sym-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .upbit-symbol-strip .sym-name .sym-sub {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-left: 0.35rem;
+    }
+    .upbit-symbol-strip .sym-price {
+      font-size: 1.35rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+    }
+    .upbit-symbol-strip .sym-change {
+      font-size: 0.95rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .upbit-ticker-sidebar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      box-sizing: border-box;
+    }
+    @media (min-width: 1101px) {
+      .upbit-ticker-sidebar {
+        position: absolute;
+        right: 0;
+        width: var(--upbit-ticker-sidebar-width);
+        z-index: 1;
+      }
+    }
+    .ticker-sidebar-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .ticker-sidebar-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+    .ticker-sidebar-head .refresh {
+      margin-left: auto;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.78rem;
+    }
+    .ticker-sidebar-head .status {
+      width: 100%;
+      font-size: 0.72rem;
+      margin: 0;
+    }
+    .ticker-sidebar-table-wrap {
+      overflow: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+    }
+    table.ticker-sidebar-table {
+      width: 100%;
+      font-size: 0.78rem;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+    }
+    table.ticker-sidebar-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 0.45rem 0.5rem;
+      font-size: 0.68rem;
+      text-transform: none;
+      letter-spacing: 0;
+      background: rgba(0, 0, 0, 0.35);
+      border-bottom: 1px solid var(--border);
+    }
+    table.ticker-sidebar-table td {
+      padding: 0.42rem 0.5rem;
+      border-top: 1px solid rgba(45, 58, 77, 0.6);
+    }
+    table.ticker-sidebar-table th.num,
+    table.ticker-sidebar-table td.num {
+      white-space: nowrap;
+    }
+    /* WS 시세 변동: 현재가 셀 0.05초 테두리 (상승 빨강 · 하락 파랑) */
+    table.ticker-sidebar-table td.num.ticker-price-flash-up {
+      box-shadow: inset 0 0 0 2px var(--upbit-up);
+    }
+    table.ticker-sidebar-table td.num.ticker-price-flash-down {
+      box-shadow: inset 0 0 0 2px var(--upbit-down);
+    }
+    table.ticker-sidebar-table tbody tr {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    table.ticker-sidebar-table tbody tr:hover {
+      background: rgba(61, 139, 255, 0.08);
+    }
+    table.ticker-sidebar-table tbody tr.ticker-row-active {
+      background: rgba(61, 139, 255, 0.14);
+      outline: 1px solid rgba(61, 139, 253, 0.35);
+      outline-offset: -1px;
+    }
+    .ticker-col-name {
+      line-height: 1.25;
+    }
+    .ticker-col-name .ticker-ko {
+      display: block;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .ticker-col-name .ticker-pair {
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+    @media (max-width: 1100px) {
+      .upbit-trade-layout-body {
+        padding-right: 0 !important;
+      }
+      .upbit-ticker-sidebar {
+        position: relative !important;
+        right: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: min(50vh, 400px);
+        margin-top: 1rem;
+      }
+    }
   </style>
   <script
     src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"
@@ -600,6 +782,7 @@
 
   <main>
     <section id="panel-upbit" class="panel active" role="tabpanel" aria-label="업비트">
+      <div class="upbit-trading-main">
       <h2 class="section-title">분봉 캔들</h2>
       <div class="ob-toolbar">
         <label for="upbit-candle-market">마켓</label>
@@ -618,6 +801,13 @@
         <button type="button" class="refresh" id="btn-upbit-candle-refresh">캔들 조회</button>
         <span class="status" id="upbit-candle-status"></span>
       </div>
+      <div class="upbit-symbol-strip" id="upbit-symbol-strip" aria-live="polite">
+        <div class="sym-name" id="symbol-strip-name">마켓을 선택하세요</div>
+        <div class="sym-price ticker-even" id="symbol-strip-price">—</div>
+        <div class="sym-change ticker-even" id="symbol-strip-change">—</div>
+      </div>
+      <div id="upbit-trade-layout" class="upbit-trade-layout">
+        <div class="upbit-trade-layout-body">
       <div id="upbit-candle-wrap">
         <div id="upbit-candle-chart-host" class="candle-chart-host" aria-label="분봉 차트"></div>
         <details class="candle-raw-details">
@@ -708,17 +898,36 @@
           </div>
         </div>
       </div>
+        </div>
 
-      <h2 class="section-title">현재가 (ticker)</h2>
-      <div class="toolbar">
-        <button type="button" class="refresh" id="btn-upbit-refresh">시세 새로고침</button>
-        <span class="status" id="upbit-status"></span>
+        <aside id="upbit-ticker-sidebar" class="upbit-ticker-sidebar" aria-label="KRW 시세">
+          <div class="ticker-sidebar-head">
+            <span class="ticker-sidebar-title">원화 (KRW)</span>
+            <button type="button" class="refresh toolbar" id="btn-upbit-refresh">새로고침</button>
+            <span class="status" id="upbit-status"></span>
+            <span class="status" id="upbit-ws-status" title="백엔드 → 브라우저 WebSocket 실시간 시세"></span>
+          </div>
+          <div class="ticker-sidebar-table-wrap">
+            <table class="ticker-sidebar-table">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th class="num">현재가</th>
+                  <th class="num">전일대비</th>
+                  <th class="num">거래대금(24h)</th>
+                </tr>
+              </thead>
+              <tbody id="upbit-ticker-tbody"></tbody>
+            </table>
+          </div>
+        </aside>
       </div>
-      <div id="upbit-table-wrap"></div>
+
+      </div>
 
       <h2 class="section-title">자산 현황</h2>
       <p class="balance-hint">
-        서버를 <code>--access_key</code> / <code>--secret_key</code>로 실행하면 JWT가 생성되어 계좌 조회가 됩니다.
+        프로젝트 루트 <code>config.toml</code>의 <code>[Upbit]</code>에 access_key·secret_key를 넣으면 JWT가 생성되어 계좌 조회가 됩니다.
         ([업비트 인증](https://docs.upbit.com/kr/reference/auth))
       </p>
       <div class="toolbar">
@@ -740,9 +949,8 @@
   </main>
 
   <script>
-    const UPBIT_MARKETS = [
-      "KRW-BTC", "KRW-ETH", "KRW-USDT", "KRW-DOGE", "KRW-XRP", "KRW-ONG",
-    ];
+    /** `/api/exchanges/upbit/markets` 응답 중 `KRW-` 마켓 (코인명 표시용) */
+    let upbitKrwMarketRows = [];
 
     /** 백엔드 `MINUTE_CANDLE_UNITS` 와 동일 */
     const MINUTE_UNITS = [
@@ -760,6 +968,13 @@
     let upbitTickerByMarket = {};
     let orderFieldSync = false;
 
+    /** 첫 로드 시에만 셀렉트를 거래대금(24h) 최상위 마켓으로 맞춤 */
+    let upbitApplyTopTradeMarketOnFirstLoad = true;
+
+    /** 백엔드 `/ws/upbit-ticker` 연결 (업비트 WS 중계) */
+    let upbitTickerWs = null;
+    let upbitTickerWsReconnectTimer = null;
+
     const asNum = (v) => {
       if (v == null || v === "") return NaN;
       return typeof v === "string" ? parseFloat(v) : Number(v);
@@ -767,6 +982,16 @@
 
     const fmtKrw = (n) =>
       new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 }).format(asNum(n));
+
+    /** 현재가 표시 — 정수만 쓰면 소수 원 단위 변동이 같은 숫자로 보일 수 있어 소수 허용 */
+    function fmtKrwTickerPrice(n) {
+      const x = asNum(n);
+      if (!Number.isFinite(x)) return "—";
+      return new Intl.NumberFormat("ko-KR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 8,
+      }).format(x);
+    }
     const fmtVol = (n) =>
       new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 6 }).format(asNum(n));
     const fmtDec = (n, frac = 8) =>
@@ -774,6 +999,21 @@
         maximumFractionDigits: frac,
         minimumFractionDigits: 0,
       }).format(asNum(n));
+
+    /** 티커 `acc_trade_price_24h`(원) — 억 단위로 짧게 표시 */
+    function fmtKrw24hTrade(n) {
+      const x = asNum(n);
+      if (!Number.isFinite(x) || x < 0) return "—";
+      if (x >= 100_000_000) {
+        const eok = x / 100_000_000;
+        const s =
+          eok >= 100
+            ? eok.toFixed(1).replace(/\.0$/, "")
+            : eok.toFixed(2).replace(/\.?0+$/, "");
+        return s + "억";
+      }
+      return fmtKrw(x);
+    }
 
     function changeClass(ch) {
       if (ch === "RISE") return "chg-rise";
@@ -785,6 +1025,290 @@
       if (ch === "RISE") return "상승";
       if (ch === "FALL") return "하락";
       return "보합";
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s == null ? "" : String(s);
+      return d.innerHTML;
+    }
+
+    function koreanNameForMarket(market) {
+      const row = upbitKrwMarketRows.find((r) => r.market === market);
+      return row && row.korean_name ? row.korean_name : "";
+    }
+
+    function pctFromQuote(q) {
+      const prev = asNum(q.prev_closing_price);
+      const tp = asNum(q.trade_price);
+      if (!Number.isFinite(prev) || prev === 0) return null;
+      return ((tp - prev) / prev) * 100;
+    }
+
+    /** 시세 목록·상단 스트립용 (업비트: 상승 빨강 / 하락 파랑) */
+    function tickerUpbitClass(change) {
+      if (change === "RISE") return "ticker-up";
+      if (change === "FALL") return "ticker-down";
+      return "ticker-even";
+    }
+
+    function highlightTickerRow(market) {
+      const m = String(market || "").trim();
+      document.querySelectorAll("#upbit-ticker-tbody tr[data-market]").forEach((tr) => {
+        tr.classList.toggle("ticker-row-active", tr.getAttribute("data-market") === m);
+      });
+    }
+
+    function updateSymbolStripFromTicker() {
+      const market =
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
+      const q = market ? upbitTickerByMarket[market] : null;
+      const nameEl = document.getElementById("symbol-strip-name");
+      const priceEl = document.getElementById("symbol-strip-price");
+      const changeEl = document.getElementById("symbol-strip-change");
+      if (!nameEl || !priceEl || !changeEl) return;
+
+      if (!market || !q) {
+        nameEl.textContent = market
+          ? "시세 없음 · 새로고침"
+          : "마켓을 선택하세요";
+        priceEl.textContent = "—";
+        priceEl.className = "sym-price ticker-even";
+        changeEl.textContent = "—";
+        changeEl.className = "sym-change ticker-even";
+        return;
+      }
+
+      const ko = koreanNameForMarket(market) || parseMarketCoin(market);
+      nameEl.innerHTML = `${escapeHtml(ko)}<span class="sym-sub"> ${escapeHtml(market)}</span>`;
+      priceEl.textContent = fmtKrwTickerPrice(q.trade_price) + " KRW";
+      priceEl.className = "sym-price " + tickerUpbitClass(q.change);
+      const pct = pctFromQuote(q);
+      const diff = asNum(q.trade_price) - asNum(q.prev_closing_price);
+      let line = changeLabel(q.change);
+      if (pct != null && Number.isFinite(pct)) {
+        const sign = q.change === "RISE" ? "+" : q.change === "FALL" ? "−" : "";
+        line = `${sign}${Math.abs(pct).toFixed(2)}%`;
+        if (Number.isFinite(diff) && diff !== 0) {
+          line += ` (${sign}${fmtKrw(Math.abs(diff))})`;
+        }
+      }
+      changeEl.textContent = line;
+      changeEl.className = "sym-change " + tickerUpbitClass(q.change);
+    }
+
+    /** 백엔드가 직렬화한 `UpbitWsTicker` JSON → REST 티커와 같은 필드로 맞춤 (`code` → `market`) */
+    function wsPayloadToQuote(ws) {
+      const code = ws.code || ws.cd;
+      if (!code) return null;
+      const tp = ws.trade_price ?? ws.tp;
+      const pcp = ws.prev_closing_price ?? ws.pcp;
+      const ch = ws.change ?? ws.c;
+      const at24 = ws.acc_trade_price_24h ?? ws.atp24h;
+      const out = { market: code };
+      if (tp !== undefined && tp !== null) out.trade_price = tp;
+      if (pcp !== undefined && pcp !== null) out.prev_closing_price = pcp;
+      if (ch !== undefined && ch !== null) out.change = ch;
+      if (at24 !== undefined && at24 !== null) out.acc_trade_price_24h = at24;
+      const tdk = ws.trade_date ?? ws.tdt;
+      const ttk = ws.trade_time ?? ws.ttm;
+      const tts = ws.trade_timestamp ?? ws.ttms;
+      if (tdk != null) out.trade_date_kst = tdk;
+      if (ttk != null) out.trade_time_kst = ttk;
+      if (tts !== undefined && tts !== null) out.trade_timestamp = tts;
+      return out;
+    }
+
+    /** WS 필드가 일부만 오거나 null이면 기존 REST 캐시를 덮어쓰지 않음 */
+    function mergeWsQuoteInto(prev, incoming) {
+      const base =
+        prev && typeof prev === "object" ? { ...prev } : {};
+      for (const k of Object.keys(incoming)) {
+        const v = incoming[k];
+        if (v !== undefined && v !== null) base[k] = v;
+      }
+      return base;
+    }
+
+    /** `previousTradePrice`: 직전 시세(숫자). 있으면 변동 방향에 따라 현재가 셀에 짧은 테두리 플래시 */
+    function flashTickerPriceCell(cell, direction) {
+      const up = "ticker-price-flash-up";
+      const down = "ticker-price-flash-down";
+      cell.classList.remove(up, down);
+      cell.classList.add(direction === "up" ? up : down);
+      setTimeout(() => {
+        cell.classList.remove(up, down);
+      }, 50);
+    }
+
+    function updateTickerRowFromQuote(market, q, previousTradePrice) {
+      const tr = document.querySelector(
+        `#upbit-ticker-tbody tr[data-market="${CSS.escape(market)}"]`
+      );
+      if (!tr) return;
+      const pct = pctFromQuote(q);
+      const cls = tickerUpbitClass(q.change);
+      let pctStr = "—";
+      if (pct != null && Number.isFinite(pct)) {
+        const sign = q.change === "RISE" ? "+" : q.change === "FALL" ? "−" : "";
+        pctStr = `${sign}${Math.abs(pct).toFixed(2)}%`;
+      }
+      const volKrw = fmtKrw24hTrade(q.acc_trade_price_24h);
+      const tds = tr.querySelectorAll("td");
+      if (tds.length < 4) return;
+      const newP = asNum(q.trade_price);
+      const priceCell = tds[1];
+      priceCell.textContent = fmtKrwTickerPrice(q.trade_price);
+      priceCell.className = "num " + cls;
+      if (
+        previousTradePrice !== undefined &&
+        Number.isFinite(previousTradePrice) &&
+        Number.isFinite(newP) &&
+        newP !== previousTradePrice
+      ) {
+        flashTickerPriceCell(priceCell, newP > previousTradePrice ? "up" : "down");
+      }
+      tds[2].textContent = pctStr;
+      tds[2].className = "num " + cls;
+      tds[3].textContent = volKrw;
+      tds[3].className = "num";
+    }
+
+    function applyUpbitWsTickerMessage(text) {
+      let ws;
+      try {
+        ws = JSON.parse(text);
+      } catch {
+        return;
+      }
+      const ty = ws.type || ws.ty;
+      if (ty !== "ticker") return;
+      const q = wsPayloadToQuote(ws);
+      if (!q) return;
+      const prev = upbitTickerByMarket[q.market];
+      const previousTradePrice = prev ? asNum(prev.trade_price) : NaN;
+      const merged = mergeWsQuoteInto(prev, q);
+      upbitTickerByMarket[q.market] = merged;
+      updateTickerRowFromQuote(q.market, merged, previousTradePrice);
+      updateSymbolStripFromTicker();
+      orderSyncPriceFromTicker();
+      orderRefreshAvailable();
+    }
+
+    function setUpbitWsStatus(text) {
+      const el = document.getElementById("upbit-ws-status");
+      if (el) el.textContent = text;
+    }
+
+    function scheduleUpbitWsReconnect() {
+      if (upbitTickerWsReconnectTimer) return;
+      upbitTickerWsReconnectTimer = setTimeout(() => {
+        upbitTickerWsReconnectTimer = null;
+        connectUpbitTickerWebSocket();
+      }, 3000);
+    }
+
+    function connectUpbitTickerWebSocket() {
+      if (upbitTickerWs) {
+        const r = upbitTickerWs.readyState;
+        if (r === WebSocket.OPEN || r === WebSocket.CONNECTING) return;
+      }
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      const url = `${proto}//${location.host}/ws/upbit-ticker`;
+      try {
+        upbitTickerWs = new WebSocket(url);
+      } catch (e) {
+        setUpbitWsStatus("WS · 오류");
+        scheduleUpbitWsReconnect();
+        return;
+      }
+      setUpbitWsStatus("WS · 연결 중…");
+      upbitTickerWs.addEventListener("open", () => {
+        setUpbitWsStatus("WS · 실시간");
+      });
+      upbitTickerWs.addEventListener("message", (ev) => {
+        if (typeof ev.data === "string") applyUpbitWsTickerMessage(ev.data);
+      });
+      upbitTickerWs.addEventListener("close", () => {
+        setUpbitWsStatus("WS · 끊김 · 재연결…");
+        upbitTickerWs = null;
+        scheduleUpbitWsReconnect();
+      });
+      upbitTickerWs.addEventListener("error", () => {
+        setUpbitWsStatus("WS · 오류");
+      });
+    }
+
+    function getDefaultUpbitMarket() {
+      return upbitKrwMarketRows[0]?.market || "";
+    }
+
+    async function loadUpbitKrwMarkets() {
+      const res = await fetch("/api/exchanges/upbit/markets");
+      const raw = await res.text();
+      if (!res.ok) {
+        throw new Error(raw || res.statusText);
+      }
+      const data = JSON.parse(raw);
+      const list = Array.isArray(data) ? data : [];
+      upbitKrwMarketRows = list
+        .filter(
+          (x) =>
+            x &&
+            typeof x.market === "string" &&
+            x.market.startsWith("KRW-")
+        )
+        .sort((a, b) => a.market.localeCompare(b.market, "ko"));
+    }
+
+    function fillUpbitMarketSelects() {
+      const ids = [
+        "upbit-candle-market",
+        "upbit-ob-market",
+        "upbit-order-market",
+      ];
+      for (const id of ids) {
+        const sel = document.getElementById(id);
+        if (!sel) continue;
+        sel.innerHTML = "";
+        for (const row of upbitKrwMarketRows) {
+          const o = document.createElement("option");
+          o.value = row.market;
+          o.textContent = row.korean_name
+            ? `${row.korean_name} (${row.market})`
+            : row.market;
+          sel.appendChild(o);
+        }
+      }
+    }
+
+    /**
+     * 티커 응답 순서(거래대금순)와 동일하게 셀렉트 옵션 순서를 맞춤. 선택 마켓은 유지.
+     */
+    function reorderMarketSelectsByTickerOrder(sortedQuotes, selectedMarket) {
+      const ids = [
+        "upbit-candle-market",
+        "upbit-ob-market",
+        "upbit-order-market",
+      ];
+      const want = String(selectedMarket || "").trim();
+      for (const id of ids) {
+        const sel = document.getElementById(id);
+        if (!sel) continue;
+        sel.innerHTML = "";
+        for (const q of sortedQuotes) {
+          const ko = koreanNameForMarket(q.market) || q.market;
+          const o = document.createElement("option");
+          o.value = q.market;
+          o.textContent =
+            ko !== q.market ? `${ko} (${q.market})` : q.market;
+          sel.appendChild(o);
+        }
+        if (want && [...sel.options].some((o) => o.value === want)) {
+          sel.value = want;
+        }
+      }
     }
 
     function sortBalances(rows) {
@@ -810,7 +1334,7 @@
             upbitBalanceCache = [];
             orderRefreshAvailable();
             status.textContent =
-              "인증 필요: 서버를 --access_key 와 --secret_key 로 실행했는지 확인하세요.";
+              "인증 필요: config.toml [Upbit] 키를 설정했는지 확인하세요.";
             status.classList.add("error");
             wrap.innerHTML = "";
             return;
@@ -905,7 +1429,8 @@
       if (!el) return;
 
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const coin = parseMarketCoin(market);
       const side = orderGetSide();
 
@@ -937,7 +1462,8 @@
 
     function orderUpdateLabelsAndSubmit() {
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const coin = parseMarketCoin(market);
       const side = orderGetSide();
 
@@ -990,7 +1516,8 @@
       if (!inp) return;
       if (!force && document.activeElement === inp) return;
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const tr = upbitTickerByMarket[market];
       if (!tr) return;
       const p = asNum(tr.trade_price);
@@ -1058,7 +1585,8 @@
       const uiOrd = orderGetUiOrdType();
       const side = orderGetSide();
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const coin = parseMarketCoin(market);
       const pEl = document.getElementById("order-price-input");
       const vEl = document.getElementById("order-volume-input");
@@ -1129,7 +1657,8 @@
     async function orderSubmit() {
       const st = document.getElementById("order-submit-status");
       const market =
-        document.getElementById("upbit-order-market")?.value || "KRW-BTC";
+        document.getElementById("upbit-order-market")?.value ||
+        getDefaultUpbitMarket();
       const side = orderGetSide();
       const apiOrd = orderGetApiOrdType();
 
@@ -1218,13 +1747,6 @@
     function initOrderForm() {
       const msel = document.getElementById("upbit-order-market");
       if (!msel) return;
-      msel.innerHTML = "";
-      for (const m of UPBIT_MARKETS) {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        msel.appendChild(o);
-      }
 
       document.querySelectorAll(".order-tabs-inner [data-order-tab]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -1301,11 +1823,12 @@
       orderApplyRowVisibility();
       orderRefreshAvailable();
       orderSyncPriceFromTicker();
+      updateSymbolStripFromTicker();
     }
 
     async function loadUpbit() {
       const status = document.getElementById("upbit-status");
-      const wrap = document.getElementById("upbit-table-wrap");
+      const tbody = document.getElementById("upbit-ticker-tbody");
       status.textContent = "불러오는 중…";
       status.classList.remove("error");
       try {
@@ -1323,46 +1846,83 @@
         status.textContent = "마지막 조회: " + new Date().toLocaleTimeString("ko-KR");
 
         if (!data.length) {
-          wrap.innerHTML = "<p class=\"placeholder\">데이터가 없습니다.</p>";
+          if (tbody) tbody.innerHTML = "";
+          updateSymbolStripFromTicker();
           return;
         }
 
-        const rows = data
-          .map(
-            (q) => `
-          <tr>
-            <td><strong>${q.market}</strong></td>
-            <td class="num">${fmtKrw(q.trade_price)}</td>
-            <td class="num">${fmtKrw(q.opening_price)}</td>
-            <td class="num">${fmtKrw(q.high_price)}</td>
-            <td class="num">${fmtKrw(q.low_price)}</td>
-            <td class="num">${fmtVol(q.trade_volume)}</td>
-            <td class="${changeClass(q.change)}">${changeLabel(q.change)}</td>
-          </tr>`
-          )
+        /* 거래대금(24h) 큰 순 — 동일하면 이름순 */
+        const sorted = [...data].sort((a, b) => {
+          const pa = asNum(a.acc_trade_price_24h);
+          const pb = asNum(b.acc_trade_price_24h);
+          const fa = Number.isFinite(pa);
+          const fb = Number.isFinite(pb);
+          if (fa && fb && pb !== pa) return pb - pa;
+          if (fa && !fb) return -1;
+          if (!fa && fb) return 1;
+          const ka = koreanNameForMarket(a.market) || a.market;
+          const kb = koreanNameForMarket(b.market) || b.market;
+          return ka.localeCompare(kb, "ko");
+        });
+
+        const curBefore =
+          document.getElementById("upbit-order-market")?.value ||
+          document.getElementById("upbit-candle-market")?.value ||
+          getDefaultUpbitMarket();
+
+        let selectedForReorder = curBefore;
+        if (upbitApplyTopTradeMarketOnFirstLoad && sorted.length > 0) {
+          selectedForReorder = sorted[0].market;
+          upbitApplyTopTradeMarketOnFirstLoad = false;
+        }
+
+        const rows = sorted
+          .map((q) => {
+            const pct = pctFromQuote(q);
+            const ko = koreanNameForMarket(q.market) || q.market;
+            const cls = tickerUpbitClass(q.change);
+            let pctStr = "—";
+            if (pct != null && Number.isFinite(pct)) {
+              const sign = q.change === "RISE" ? "+" : q.change === "FALL" ? "−" : "";
+              pctStr = `${sign}${Math.abs(pct).toFixed(2)}%`;
+            }
+            const volKrw = fmtKrw24hTrade(q.acc_trade_price_24h);
+            return `<tr data-market="${escapeHtml(q.market)}" tabindex="0" role="button">
+            <td class="ticker-col-name"><span class="ticker-ko">${escapeHtml(ko)}</span><span class="ticker-pair">${escapeHtml(q.market)}</span></td>
+            <td class="num ${cls}">${fmtKrwTickerPrice(q.trade_price)}</td>
+            <td class="num ${cls}">${pctStr}</td>
+            <td class="num">${volKrw}</td>
+          </tr>`;
+          })
           .join("");
 
-        wrap.innerHTML = `
-          <table>
-            <thead>
-              <tr>
-                <th>마켓</th>
-                <th>현재가</th>
-                <th>시가</th>
-                <th>고가</th>
-                <th>저가</th>
-                <th>거래량</th>
-                <th>전일대비</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>`;
+        if (tbody) tbody.innerHTML = rows;
+
+        reorderMarketSelectsByTickerOrder(sorted, selectedForReorder);
+        const cur =
+          document.getElementById("upbit-order-market")?.value ||
+          getDefaultUpbitMarket();
+        highlightTickerRow(cur);
+        updateSymbolStripFromTicker();
+        if (String(selectedForReorder).trim() !== String(curBefore).trim()) {
+          orderUpdateLabelsAndSubmit();
+          orderRefreshAvailable();
+          orderSyncPriceFromTicker({ force: true });
+          orderRecalcFrom("price");
+        }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            syncTickerSidebarLayout();
+          });
+        });
       } catch (e) {
         upbitTickerByMarket = {};
         orderRefreshAvailable();
         status.textContent = "오류: " + e.message;
         status.classList.add("error");
-        wrap.innerHTML = "";
+        if (tbody) tbody.innerHTML = "";
+        updateSymbolStripFromTicker();
+        syncTickerSidebarLayout();
       }
     }
 
@@ -1399,26 +1959,7 @@
       });
     }
 
-    function initOrderbookMarketSelect() {
-      const sel = document.getElementById("upbit-ob-market");
-      sel.innerHTML = "";
-      for (const m of UPBIT_MARKETS) {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        sel.appendChild(o);
-      }
-    }
-
     function initCandleControls() {
-      const msel = document.getElementById("upbit-candle-market");
-      msel.innerHTML = "";
-      for (const m of UPBIT_MARKETS) {
-        const o = document.createElement("option");
-        o.value = m;
-        o.textContent = m;
-        msel.appendChild(o);
-      }
       const usel = document.getElementById("upbit-candle-unit");
       usel.innerHTML = "";
       for (const [u, label] of MINUTE_UNITS) {
@@ -1486,8 +2027,8 @@
           value: asNum(c.candle_acc_trade_volume),
           color:
             close >= open
-              ? "rgba(38, 166, 154, 0.45)"
-              : "rgba(239, 83, 80, 0.45)",
+              ? "rgba(232, 69, 69, 0.45)"
+              : "rgba(25, 118, 210, 0.45)",
         };
       });
 
@@ -1517,11 +2058,11 @@
       });
 
       const candleSeries = chart.addCandlestickSeries({
-        upColor: "#26a69a",
-        downColor: "#ef5350",
+        upColor: "#e84545",
+        downColor: "#1976d2",
         borderVisible: false,
-        wickUpColor: "#26a69a",
-        wickDownColor: "#ef5350",
+        wickUpColor: "#e84545",
+        wickDownColor: "#1976d2",
       });
       candleSeries.priceScale().applyOptions({
         scaleMargins: { top: 0.04, bottom: 0.2 },
@@ -1557,6 +2098,13 @@
 
       if (!Number.isFinite(count) || count < 1 || count > 200) {
         status.textContent = "개수는 1~200 범위의 정수로 입력하세요.";
+        status.classList.add("error");
+        return;
+      }
+
+      if (!String(market || "").trim()) {
+        status.textContent =
+          "마켓이 없습니다. /api/exchanges/upbit/markets 를 불러온 뒤 다시 시도하세요.";
         status.classList.add("error");
         return;
       }
@@ -1637,6 +2185,11 @@
             <tbody>${rows}</tbody>
           </table>`;
         }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            syncTickerSidebarLayout();
+          });
+        });
       } catch (e) {
         status.textContent = "오류: " + e.message;
         status.classList.add("error");
@@ -1671,7 +2224,15 @@
       const status = document.getElementById("upbit-ob-status");
       const wrap = document.getElementById("upbit-ob-wrap");
       const sel = document.getElementById("upbit-ob-market");
-      const market = sel.value || "KRW-BTC";
+      const market = sel.value || getDefaultUpbitMarket();
+
+      if (!String(market || "").trim()) {
+        status.textContent =
+          "마켓이 없습니다. 마켓 목록 API를 확인한 뒤 다시 시도하세요.";
+        status.classList.add("error");
+        wrap.innerHTML = "";
+        return;
+      }
 
       status.textContent = "오더북 불러오는 중…";
       status.classList.remove("error");
@@ -1791,6 +2352,7 @@
               scrollOrderbookToAnchorRow(scrollEl);
             }
           );
+          syncTickerSidebarLayout();
         });
       } catch (e) {
         status.textContent = "오류: " + e.message;
@@ -1812,8 +2374,12 @@
       for (const id of UPBIT_MARKET_SELECT_IDS) {
         const el = document.getElementById(id);
         if (!el) continue;
-        if ([...el.options].some((o) => o.value === m)) el.value = m;
+        if ([...el.options].some((o) => o.value === m)) {
+          el.value = m;
+        }
       }
+      highlightTickerRow(m);
+      updateSymbolStripFromTicker();
       loadOrderbook();
       loadMinuteCandles();
       orderUpdateLabelsAndSubmit();
@@ -1830,6 +2396,94 @@
       }
     }
 
+    function initUpbitTickerSidebar() {
+      const tb = document.getElementById("upbit-ticker-tbody");
+      if (!tb) return;
+      tb.addEventListener("click", (e) => {
+        const tr = e.target.closest("tr[data-market]");
+        if (!tr) return;
+        syncUpbitMarketAcrossUi(tr.getAttribute("data-market"));
+      });
+      tb.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        const tr = e.target.closest("tr[data-market]");
+        if (!tr) return;
+        e.preventDefault();
+        syncUpbitMarketAcrossUi(tr.getAttribute("data-market"));
+      });
+    }
+
+    let tickerSidebarResizeObserver = null;
+
+    /** `el`의 `offsetParent` 체인을 따라 `ancestor`까지의 offsetTop 합 (레이아웃 흐름 기준, sticky 왜곡 없음) */
+    function offsetTopWithinAncestor(el, ancestor) {
+      let top = 0;
+      let n = el;
+      while (n && n !== ancestor) {
+        top += n.offsetTop;
+        n = n.offsetParent;
+      }
+      return n === ancestor ? top : null;
+    }
+
+    /**
+     * 시세 패널: #upbit-candle-wrap 상단 ~ #upbit-order-panel 하단 (#upbit-trade-layout 기준).
+     * 내용이 넘치면 .ticker-sidebar-table-wrap 에만 스크롤.
+     */
+    function syncTickerSidebarLayout() {
+      const layout = document.getElementById("upbit-trade-layout");
+      const candle = document.getElementById("upbit-candle-wrap");
+      const order = document.getElementById("upbit-order-panel");
+      const aside = document.getElementById("upbit-ticker-sidebar");
+      if (!layout || !candle || !order || !aside) return;
+      if (window.matchMedia("(max-width: 1100px)").matches) {
+        aside.style.removeProperty("top");
+        aside.style.removeProperty("height");
+        aside.style.removeProperty("max-height");
+        return;
+      }
+      const cTop = offsetTopWithinAncestor(candle, layout);
+      const oTop = offsetTopWithinAncestor(order, layout);
+      let topPx;
+      let heightPx;
+      if (cTop != null && oTop != null) {
+        topPx = cTop;
+        heightPx = Math.max(120, oTop + order.offsetHeight - cTop);
+      } else {
+        const lr = layout.getBoundingClientRect();
+        const cr = candle.getBoundingClientRect();
+        const or = order.getBoundingClientRect();
+        topPx = cr.top - lr.top;
+        heightPx = Math.max(120, or.bottom - cr.top);
+      }
+      aside.style.position = "absolute";
+      aside.style.right = "0";
+      aside.style.removeProperty("width");
+      aside.style.top = `${topPx}px`;
+      aside.style.height = `${heightPx}px`;
+      aside.style.removeProperty("max-height");
+    }
+
+    function initTickerSidebarLayoutSync() {
+      const layout = document.getElementById("upbit-trade-layout");
+      const candle = document.getElementById("upbit-candle-wrap");
+      const order = document.getElementById("upbit-order-panel");
+      const obLayout = document.querySelector(".ob-order-layout");
+      if (!layout || typeof ResizeObserver === "undefined") {
+        syncTickerSidebarLayout();
+        return;
+      }
+      tickerSidebarResizeObserver?.disconnect();
+      tickerSidebarResizeObserver = new ResizeObserver(() => {
+        syncTickerSidebarLayout();
+      });
+      tickerSidebarResizeObserver.observe(layout);
+      if (candle) tickerSidebarResizeObserver.observe(candle);
+      if (order) tickerSidebarResizeObserver.observe(order);
+      if (obLayout) tickerSidebarResizeObserver.observe(obLayout);
+      syncTickerSidebarLayout();
+    }
+
     function activateTab(panelId) {
       document.querySelectorAll("nav.tabs button").forEach((btn) => {
         const on = btn.dataset.panel === panelId;
@@ -1842,10 +2496,12 @@
         sec.hidden = !on;
       });
       if (panelId === "upbit") {
-        loadUpbit();
-        loadOrderbook();
-        loadMinuteCandles();
-        loadUpbitBalance();
+        void (async () => {
+          await loadUpbit();
+          loadOrderbook();
+          loadMinuteCandles();
+          loadUpbitBalance();
+        })();
       }
     }
 
@@ -1868,13 +2524,34 @@
       const host = document.getElementById("upbit-candle-chart-host");
       if (upbitCandleChart && host)
         upbitCandleChart.applyOptions({ width: host.clientWidth });
+      syncTickerSidebarLayout();
     });
 
-    initOrderbookMarketSelect();
-    initCandleControls();
-    initOrderForm();
-    initUpbitMarketSync();
-    activateTab("upbit");
+    (async function bootstrapUpbit() {
+      try {
+        await loadUpbitKrwMarkets();
+      } catch (e) {
+        const st = document.getElementById("upbit-status");
+        if (st) {
+          st.textContent = "마켓 목록을 불러오지 못했습니다: " + e.message;
+          st.classList.add("error");
+        }
+        upbitKrwMarketRows = [];
+      }
+      fillUpbitMarketSelects();
+      initCandleControls();
+      initOrderForm();
+      initUpbitMarketSync();
+      initUpbitTickerSidebar();
+      initTickerSidebarLayoutSync();
+      activateTab("upbit");
+      connectUpbitTickerWebSocket();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          syncTickerSidebarLayout();
+        });
+      });
+    })();
   </script>
 </body>
 </html>
