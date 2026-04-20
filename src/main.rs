@@ -7,7 +7,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
-use crate::exchanges::upbit::{run_quote_websocket_with_reconnect, UpbitPublicClient, UpbitWsTicker};
+use crate::exchanges::upbit::{
+    run_websocket_with_reconnect, UpbitPublicClient, UpbitWebsocketAction, UpbitWsEvent,
+};
 use crate::web::{create_router, AppState};
 use tokio::sync::{broadcast, mpsc};
 
@@ -59,13 +61,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         upbit.secret_key.as_ref().map(String::len),
     );
 
-    let (ticker_mpsc_tx, mut ticker_mpsc_rx) = mpsc::channel::<UpbitWsTicker>(512);
-    let (ticker_broadcast, _) = broadcast::channel::<UpbitWsTicker>(1024);
+    let (ticker_mpsc_tx, mut ticker_mpsc_rx) = mpsc::channel::<Box<dyn UpbitWsEvent>>(512);
+    let (ticker_broadcast, _) = broadcast::channel::<std::sync::Arc<dyn UpbitWsEvent>>(1024);
 
     let bcast = ticker_broadcast.clone();
     tokio::spawn(async move {
-        while let Some(t) = ticker_mpsc_rx.recv().await {
-            let _ = bcast.send(t);
+        while let Some(ev) = ticker_mpsc_rx.recv().await {
+            let _ = bcast.send(std::sync::Arc::from(ev));
         }
     });
 
@@ -105,7 +107,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             );
             pairs.push("KRW-BTC".to_string());
         }
-        if let Err(e) = run_quote_websocket_with_reconnect(pairs, ticker_mpsc_tx).await {
+        if let Err(e) = run_websocket_with_reconnect(
+            pairs,
+            ticker_mpsc_tx,
+            UpbitWebsocketAction::Quote,
+        )
+        .await
+        {
             eprintln!("[cex_board] 업비트 WebSocket 태스크 종료: {e}");
         }
     });

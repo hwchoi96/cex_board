@@ -76,6 +76,13 @@ pub enum UpbitWsStreamType {
     Realtime,
 }
 
+/// 업비트 공개 WebSocket에서 파싱한 페이로드(티커·호가 등)를 한 채널로 보낼 때 공통 타입.
+///
+/// `Box<dyn UpbitWsEvent>`는 `Clone`이 없어 `broadcast`로 넘길 때는 `Arc::from(box)`로 바꿉니다.
+pub trait UpbitWsEvent: Send + Sync + std::fmt::Debug {
+    fn to_json_string(&self) -> Result<String, serde_json::Error>;
+}
+
 /// WebSocket `ticker` 구독 — `format: "DEFAULT"` 페이로드
 /// <https://docs.upbit.com/kr/reference/websocket-ticker>
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -118,6 +125,42 @@ pub struct UpbitWsTicker {
     pub stream_type: UpbitWsStreamType,
 }
 
+impl UpbitWsEvent for UpbitWsTicker {
+    fn to_json_string(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct OrderBookUnit {
+    pub ask_price: Decimal,
+    pub bid_price: Decimal,
+    pub ask_size: Decimal,
+    pub bid_size: Decimal,
+}
+
+/// WebSocket `orderbook` 구독 — `format: "DEFAULT"` 페이로드
+/// <https://docs.upbit.com/kr/reference/websocket-orderbook>
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UpbitWsOrderbook {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub code: String,
+    pub total_ask_size: Decimal,
+    pub total_bid_size: Decimal,
+    #[serde(rename = "orderbook_units")]
+    pub orderbook_units: Vec<OrderBookUnit>,
+    pub timestamp: u64,
+    pub stream_type: UpbitWsStreamType,
+    pub level: Decimal,
+}
+
+impl UpbitWsEvent for UpbitWsOrderbook {
+    fn to_json_string(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+}
+
 /// https://docs.upbit.com/kr/reference/list-tickers
 /// 업비트 페어 단위 현재가
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -139,14 +182,6 @@ pub struct UpbitPairQuote {
     /// 최근 24시간 누적 거래대금(KRW 마켓이면 원화). 시세 「거래대금」은 이 값.
     pub acc_trade_price_24h: Decimal,
     pub timestamp: u64,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct OrderBookUnit {
-    pub ask_price: Decimal,
-    pub bid_price: Decimal,
-    pub ask_size: Decimal,
-    pub bid_size: Decimal,
 }
 
 /// https://docs.upbit.com/kr/reference/list-orderbooks
@@ -268,5 +303,35 @@ mod tests {
         assert_eq!(t.market_state, UpbitWsMarketState::Active);
         assert_eq!(t.market_warning, UpbitWsMarketWarning::None);
         assert_eq!(t.stream_type, UpbitWsStreamType::Realtime);
+    }
+
+    /// 문서 예시(JSON) — `format: "DEFAULT"`
+    /// <https://docs.upbit.com/kr/reference/websocket-orderbook>
+    #[test]
+    fn ws_orderbook_default_deserializes_doc_example() {
+        let j = r#"{
+            "type": "orderbook",
+            "code": "KRW-BTC",
+            "timestamp": 1746601573804,
+            "total_ask_size": 4.79158413,
+            "total_bid_size": 2.65609625,
+            "orderbook_units": [
+                {
+                    "ask_price": 137002000,
+                    "bid_price": 137001000,
+                    "ask_size": 0.10623869,
+                    "bid_size": 0.03656812
+                }
+            ],
+            "stream_type": "SNAPSHOT",
+            "level": 0
+        }"#;
+
+        let o: UpbitWsOrderbook = serde_json::from_str(j).unwrap();
+        assert_eq!(o.kind, "orderbook");
+        assert_eq!(o.code, "KRW-BTC");
+        assert_eq!(o.orderbook_units.len(), 1);
+        assert_eq!(o.orderbook_units[0].ask_price, Decimal::from(137002000));
+        assert_eq!(o.stream_type, UpbitWsStreamType::Snapshot);
     }
 }
