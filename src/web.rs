@@ -13,12 +13,12 @@ use axum::{
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use tokio::sync::broadcast;
-
+use tokio::sync::{broadcast, mpsc};
 use crate::constants::{BuySellType, ContStrategy, OrderType};
 use crate::exchanges::upbit::{
-    UpbitError, UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest,
-    UpbitPairQuote, UpbitPublicClient, UpbitTradePair, UpbitWsEvent,
+    run_websocket_with_reconnect, UpbitError, UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook,
+    UpbitOrderRequest, UpbitPairQuote, UpbitPublicClient, UpbitTradePair, UpbitWebsocketAction,
+    UpbitWsEvent,
 };
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
@@ -27,7 +27,7 @@ pub const MINUTE_CANDLE_UNITS: &[i32] = &[1, 3, 5, 15, 30, 60, 240];
 #[derive(Clone)]
 pub struct AppState {
     pub upbit: Arc<UpbitPublicClient>,
-    /// 업비트 WS 이벤트(티커·호가 등)를 브라우저 등 여러 구독자에게 fan-out
+    /// 티커 WS 이벤트 → 브라우저 `/ws/upbit-ticker` 등
     pub ticker_broadcast: broadcast::Sender<std::sync::Arc<dyn UpbitWsEvent>>,
 }
 
@@ -35,6 +35,7 @@ pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/ws/upbit-ticker", get(ws_upbit_ticker))
+        .route("/ws/upbit-orderbook", get(ws_upbit_orderbook))
         .route("/api/exchanges/upbit/ticker", get(upbit_tickers))
         .route("/api/exchanges/upbit/orderbook", get(upbit_orderbook))
         .route("/api/exchanges/upbit/candles/minutes", get(upbit_minute_candle))
@@ -135,6 +136,24 @@ pub struct UpbitOrderbookQuery {
     pub markets: Option<String>,
 }
 
+/// `/ws/upbit-orderbook?markets=...` — 필수. 쉼표로 여러 개 지정 가능.
+#[derive(Deserialize)]
+pub struct UpbitOrderbookWsQuery {
+    pub markets: Option<String>,
+}
+
+fn parse_markets_csv(raw: &Option<String>) -> Vec<String> {
+    raw.as_ref()
+        .map(|s| {
+            s.split(',')
+                .map(str::trim)
+                .filter(|x| !x.is_empty())
+                .map(|x| x.to_uppercase())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[derive(Deserialize)]
 pub struct UpbitMinuteCandleQuery {
     pub market: String,
@@ -149,17 +168,11 @@ async fn index() -> Html<&'static str> {
     )))
 }
 
-/// 브라우저 클라이언트 → 업비트에서 받은 `UpbitWsEvent` JSON(텍스트 프레임) 스트림
-async fn ws_upbit_ticker(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_upbit_ticker_ws(socket, state))
-}
-
-async fn handle_upbit_ticker_ws(mut socket: WebSocket, state: AppState) {
-    let mut rx = state.ticker_broadcast.subscribe();
-
+/// 브라우저 ← 업비트에서 받은 `UpbitWsEvent` JSON(텍스트 프레임) 중계
+async fn relay_upbit_ws_events(
+    mut socket: WebSocket,
+    mut rx: broadcast::Receiver<std::sync::Arc<dyn UpbitWsEvent>>,
+) {
     loop {
         tokio::select! {
             recv = rx.recv() => {
@@ -176,9 +189,7 @@ async fn handle_upbit_ticker_ws(mut socket: WebSocket, state: AppState) {
                             return;
                         }
                     }
-                    Err(broadcast::error::RecvError::Lagged(_)) => {
-                        /* 느린 클라이언트는 스킵 */
-                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {}
                     Err(broadcast::error::RecvError::Closed) => return,
                 }
             }
@@ -195,6 +206,81 @@ async fn handle_upbit_ticker_ws(mut socket: WebSocket, state: AppState) {
             }
         }
     }
+}
+
+async fn ws_upbit_ticker(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| {
+        let rx = state.ticker_broadcast.subscribe();
+        relay_upbit_ws_events(socket, rx)
+    })
+}
+
+/// 클라이언트가 넘긴 `markets`만 업비트 호가 WS에 구독합니다 (`?markets=KRW-BTC`).
+async fn ws_upbit_orderbook(
+    ws: WebSocketUpgrade,
+    Query(q): Query<UpbitOrderbookWsQuery>,
+) -> impl IntoResponse {
+    let pairs = parse_markets_csv(&q.markets);
+    if pairs.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            "markets 쿼리가 필요합니다. 예: /ws/upbit-orderbook?markets=KRW-BTC",
+        )
+            .into_response();
+    }
+    ws.on_upgrade(move |socket| handle_upbit_orderbook_ws_session(socket, pairs))
+}
+
+async fn relay_mpsc_upbit_ws_to_browser(
+    mut socket: WebSocket,
+    mut rx: mpsc::Receiver<Box<dyn UpbitWsEvent>>,
+) {
+    loop {
+        tokio::select! {
+            recv = rx.recv() => {
+                match recv {
+                    Some(ev) => {
+                        let Ok(json) = ev.to_json_string() else {
+                            continue;
+                        };
+                        if socket
+                            .send(Message::Text(json.into()))
+                            .await
+                            .is_err()
+                        {
+                            return;
+                        }
+                    }
+                    None => return,
+                }
+            }
+            inc = socket.recv() => {
+                match inc {
+                    None => return,
+                    Some(Ok(Message::Close(_))) => return,
+                    Some(Ok(Message::Ping(p))) => {
+                        let _ = socket.send(Message::Pong(p)).await;
+                    }
+                    Some(Ok(_)) => {}
+                    Some(Err(_)) => return,
+                }
+            }
+        }
+    }
+}
+
+async fn handle_upbit_orderbook_ws_session(socket: WebSocket, pairs: Vec<String>) {
+    let (tx, rx) = mpsc::channel::<Box<dyn UpbitWsEvent>>(512);
+    let upbit_task = tokio::spawn(run_websocket_with_reconnect(
+        pairs,
+        tx,
+        UpbitWebsocketAction::Orderbook,
+    ));
+    relay_mpsc_upbit_ws_to_browser(socket, rx).await;
+    upbit_task.abort();
 }
 
 async fn upbit_tickers(State(state): State<AppState>) -> impl IntoResponse {

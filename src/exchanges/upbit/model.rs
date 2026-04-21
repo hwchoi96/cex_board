@@ -79,7 +79,7 @@ pub enum UpbitWsStreamType {
 /// 업비트 공개 WebSocket에서 파싱한 페이로드(티커·호가 등)를 한 채널로 보낼 때 공통 타입.
 ///
 /// `Box<dyn UpbitWsEvent>`는 `Clone`이 없어 `broadcast`로 넘길 때는 `Arc::from(box)`로 바꿉니다.
-pub trait UpbitWsEvent: Send + Sync + std::fmt::Debug {
+pub trait UpbitWsEvent: Send + Sync + std::fmt::Debug{
     fn to_json_string(&self) -> Result<String, serde_json::Error>;
 }
 
