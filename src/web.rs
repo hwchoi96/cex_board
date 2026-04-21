@@ -18,7 +18,7 @@ use tokio::sync::broadcast;
 use crate::constants::{BuySellType, ContStrategy, OrderType};
 use crate::exchanges::upbit::{
     UpbitError, UpbitMinuteCandle, UpbitMyBalance, UpbitOrderBook, UpbitOrderRequest,
-    UpbitPairQuote, UpbitPublicClient, UpbitTradePair, UpbitWsTicker,
+    UpbitPairQuote, UpbitPublicClient, UpbitTradePair, UpbitWsEvent,
 };
 
 /// 업비트 분봉 API에서 허용하는 minute 단위
@@ -27,8 +27,8 @@ pub const MINUTE_CANDLE_UNITS: &[i32] = &[1, 3, 5, 15, 30, 60, 240];
 #[derive(Clone)]
 pub struct AppState {
     pub upbit: Arc<UpbitPublicClient>,
-    /// 업비트 WS 티커를 브라우저 등 여러 구독자에게 fan-out
-    pub ticker_broadcast: broadcast::Sender<UpbitWsTicker>,
+    /// 업비트 WS 이벤트(티커·호가 등)를 브라우저 등 여러 구독자에게 fan-out
+    pub ticker_broadcast: broadcast::Sender<std::sync::Arc<dyn UpbitWsEvent>>,
 }
 
 pub fn create_router(state: AppState) -> Router {
@@ -149,7 +149,7 @@ async fn index() -> Html<&'static str> {
     )))
 }
 
-/// 브라우저 클라이언트 → 업비트에서 받은 `UpbitWsTicker` JSON(텍스트 프레임) 스트림
+/// 브라우저 클라이언트 → 업비트에서 받은 `UpbitWsEvent` JSON(텍스트 프레임) 스트림
 async fn ws_upbit_ticker(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
@@ -165,7 +165,7 @@ async fn handle_upbit_ticker_ws(mut socket: WebSocket, state: AppState) {
             recv = rx.recv() => {
                 match recv {
                     Ok(t) => {
-                        let Ok(json) = serde_json::to_string(&t) else {
+                        let Ok(json) = t.to_json_string() else {
                             continue;
                         };
                         if socket
