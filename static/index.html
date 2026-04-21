@@ -824,6 +824,11 @@
             <select id="upbit-ob-market" aria-label="오더북 마켓"></select>
             <button type="button" class="refresh" id="btn-upbit-ob-refresh">오더북 새로고침</button>
             <span class="status" id="upbit-ob-status"></span>
+            <span
+              class="status"
+              id="upbit-ob-ws-status"
+              title="호가 WebSocket(백엔드 중계)"
+            ></span>
           </div>
           <div id="upbit-ob-wrap"></div>
         </div>
@@ -975,15 +980,61 @@
     let upbitTickerWs = null;
     let upbitTickerWsReconnectTimer = null;
 
+    /** 백엔드 `/ws/upbit-orderbook?markets=` — 구독 마켓만 업비트에서 수신 */
+    let upbitOrderbookWs = null;
+    let upbitOrderbookWsReconnectTimer = null;
+    let upbitOrderbookWsLastUrl = null;
+    /**
+     * 호가 테이블 스크롤 위치(0~1). innerHTML 직후 한 프레임에서는 scrollHeight가 아직 0에 가깝고,
+     * 그때 복원하면 scrollTop이 항상 0이 되어 맨 위로 붙는다 — DOM에서 못 읽을 때 폴백으로 쓴다.
+     */
+    let orderbookScrollRatioMemory = null;
+    let orderbookPaintGeneration = 0;
+
+    function orderbookReadScrollRatio(scrollEl) {
+      if (!scrollEl) return null;
+      const max = scrollEl.scrollHeight - scrollEl.clientHeight;
+      if (max <= 0) return null;
+      return scrollEl.scrollTop / max;
+    }
+
+    function orderbookApplyScrollRatio(scrollEl, ratio) {
+      if (ratio == null || !scrollEl) return;
+      const max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+      scrollEl.scrollTop = ratio * max;
+    }
+
+    function orderbookBindScrollMemoryListener(scrollEl) {
+      scrollEl.addEventListener(
+        "scroll",
+        () => {
+          const r = orderbookReadScrollRatio(scrollEl);
+          if (r != null) orderbookScrollRatioMemory = r;
+        },
+        { passive: true }
+      );
+    }
+
+    function orderbookBindScrollMemoryOnWrap(wrap) {
+      if (!wrap) return;
+      wrap.querySelectorAll(".ob-table-wrap[data-ob-anchor-row]").forEach((el) => {
+        orderbookBindScrollMemoryListener(el);
+      });
+    }
+
     const asNum = (v) => {
       if (v == null || v === "") return NaN;
       return typeof v === "string" ? parseFloat(v) : Number(v);
     };
 
+    /** 원화 정수만 (천 단위 쉼표). 거래대금처럼 큰 액수·굳이 소수 불필요할 때 */
     const fmtKrw = (n) =>
       new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 }).format(asNum(n));
 
-    /** 현재가 표시 — 정수만 쓰면 소수 원 단위 변동이 같은 숫자로 보일 수 있어 소수 허용 */
+    /**
+     * 원화 **가격** (현재가·호가·캔들 등) — 저가 코인·소수 원 단위 유지.
+     * `fmtKrw`는 소수를 버려서 140.1 → 140 처럼 보임.
+     */
     function fmtKrwTickerPrice(n) {
       const x = asNum(n);
       if (!Number.isFinite(x)) return "—";
@@ -992,6 +1043,8 @@
         maximumFractionDigits: 8,
       }).format(x);
     }
+
+    const fmtKrwPrice = fmtKrwTickerPrice;
     const fmtVol = (n) =>
       new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 6 }).format(asNum(n));
     const fmtDec = (n, frac = 8) =>
@@ -1091,7 +1144,7 @@
         const sign = q.change === "RISE" ? "+" : q.change === "FALL" ? "−" : "";
         line = `${sign}${Math.abs(pct).toFixed(2)}%`;
         if (Number.isFinite(diff) && diff !== 0) {
-          line += ` (${sign}${fmtKrw(Math.abs(diff))})`;
+          line += ` (${sign}${fmtKrwPrice(Math.abs(diff))})`;
         }
       }
       changeEl.textContent = line;
@@ -1237,6 +1290,133 @@
       });
       upbitTickerWs.addEventListener("error", () => {
         setUpbitWsStatus("WS · 오류");
+      });
+    }
+
+    /** WS `UpbitWsOrderbook` JSON → REST 오더북 한 행과 같은 형태 (`code` → `market`) */
+    function wsOrderbookPayloadToBook(ws) {
+      const code = ws.code || ws.market;
+      if (!code) return null;
+      return {
+        market: String(code).trim(),
+        orderbook_units: ws.orderbook_units || [],
+        timestamp: ws.timestamp,
+        level: ws.level,
+        total_ask_size: ws.total_ask_size,
+        total_bid_size: ws.total_bid_size,
+      };
+    }
+
+    function setUpbitOrderbookWsStatus(text) {
+      const el = document.getElementById("upbit-ob-ws-status");
+      if (el) el.textContent = text;
+    }
+
+    function scheduleUpbitOrderbookWsReconnect() {
+      if (upbitOrderbookWsReconnectTimer) return;
+      upbitOrderbookWsReconnectTimer = setTimeout(() => {
+        upbitOrderbookWsReconnectTimer = null;
+        connectUpbitOrderbookWebSocket();
+      }, 3000);
+    }
+
+    function getUpbitOrderbookWebSocketUrl() {
+      const m = String(
+        document.getElementById("upbit-ob-market")?.value ||
+          getDefaultUpbitMarket() ||
+          ""
+      ).trim();
+      if (!m) return null;
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      return `${proto}//${location.host}/ws/upbit-orderbook?markets=${encodeURIComponent(m)}`;
+    }
+
+    /**
+     * 호가 화면에 선택된 마켓(`#upbit-ob-market`)과 메시지의 `code`가 같을 때만 테이블을 갱신합니다.
+     */
+    function applyUpbitWsOrderbookMessage(text) {
+      let ws;
+      try {
+        ws = JSON.parse(text);
+      } catch {
+        return;
+      }
+      const ty = ws.type || ws.ty;
+      if (ty !== "orderbook") return;
+
+      const book = wsOrderbookPayloadToBook(ws);
+      if (!book) return;
+
+      const sel = document.getElementById("upbit-ob-market");
+      const wanted =
+        (sel && String(sel.value || "").trim()) || getDefaultUpbitMarket();
+      if (!wanted) return;
+
+      if (book.market.toUpperCase() !== wanted.toUpperCase()) return;
+
+      const wrap = document.getElementById("upbit-ob-wrap");
+      const status = document.getElementById("upbit-ob-status");
+      if (!patchOrderbookDomInPlace(wrap, book)) {
+        paintOrderbookWrap(wrap, [book], { scrollToAnchor: false });
+      }
+      if (status) {
+        const t =
+          book.timestamp != null
+            ? new Date(Number(book.timestamp)).toLocaleTimeString("ko-KR")
+            : new Date().toLocaleTimeString("ko-KR");
+        status.textContent = "실시간 호가 · " + t;
+        status.classList.remove("error");
+      }
+    }
+
+    function connectUpbitOrderbookWebSocket() {
+      const url = getUpbitOrderbookWebSocketUrl();
+      if (!url) {
+        setUpbitOrderbookWsStatus("호가 WS · 마켓 없음");
+        if (upbitOrderbookWs) {
+          upbitOrderbookWs.close();
+          upbitOrderbookWs = null;
+        }
+        upbitOrderbookWsLastUrl = null;
+        return;
+      }
+
+      if (
+        upbitOrderbookWsLastUrl === url &&
+        upbitOrderbookWs
+      ) {
+        const r = upbitOrderbookWs.readyState;
+        if (r === WebSocket.OPEN || r === WebSocket.CONNECTING) return;
+      }
+
+      if (upbitOrderbookWs) {
+        upbitOrderbookWs.close();
+        upbitOrderbookWs = null;
+      }
+      upbitOrderbookWsLastUrl = url;
+
+      try {
+        upbitOrderbookWs = new WebSocket(url);
+      } catch (e) {
+        setUpbitOrderbookWsStatus("호가 WS · 오류");
+        scheduleUpbitOrderbookWsReconnect();
+        return;
+      }
+      setUpbitOrderbookWsStatus("호가 WS · 연결 중…");
+      upbitOrderbookWs.addEventListener("open", () => {
+        setUpbitOrderbookWsStatus("호가 WS · 실시간");
+      });
+      upbitOrderbookWs.addEventListener("message", (ev) => {
+        if (typeof ev.data === "string")
+          applyUpbitWsOrderbookMessage(ev.data);
+      });
+      upbitOrderbookWs.addEventListener("close", () => {
+        setUpbitOrderbookWsStatus("호가 WS · 끊김 · 재연결…");
+        upbitOrderbookWs = null;
+        scheduleUpbitOrderbookWsReconnect();
+      });
+      upbitOrderbookWs.addEventListener("error", () => {
+        setUpbitOrderbookWsStatus("호가 WS · 오류");
       });
     }
 
@@ -1452,7 +1632,7 @@
         if (row && tr && Number.isFinite(asNum(tr.trade_price))) {
           const approx = asNum(row.balance) * asNum(tr.trade_price);
           if (Number.isFinite(approx))
-            sub = `<div class="order-available-sub">≈ ${fmtKrw(approx)} KRW</div>`;
+            sub = `<div class="order-available-sub">≈ ${fmtKrwPrice(approx)} KRW</div>`;
         } else {
           sub = `<div class="order-available-sub">≈ ${krwFmt} KRW</div>`;
         }
@@ -1910,6 +2090,8 @@
           orderSyncPriceFromTicker({ force: true });
           orderRecalcFrom("price");
         }
+        /* 셀렉트가 거래대금순·첫 진입 1위 마켓으로 맞춰진 뒤 호가 WS URL을 잡는다 */
+        connectUpbitOrderbookWebSocket();
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             syncTickerSidebarLayout();
@@ -2156,10 +2338,10 @@
             (c) => `
           <tr>
             <td class="num">${c.candle_date_time_kst ?? "—"}</td>
-            <td class="num">${fmtKrw(c.opening_price)}</td>
-            <td class="num">${fmtKrw(c.high_price)}</td>
-            <td class="num">${fmtKrw(c.low_price)}</td>
-            <td class="num">${fmtKrw(c.trade_price)}</td>
+            <td class="num">${fmtKrwPrice(c.opening_price)}</td>
+            <td class="num">${fmtKrwPrice(c.high_price)}</td>
+            <td class="num">${fmtKrwPrice(c.low_price)}</td>
+            <td class="num">${fmtKrwPrice(c.trade_price)}</td>
             <td class="num">${fmtDec(c.candle_acc_trade_price, 2)}</td>
             <td class="num">${fmtDec(c.candle_acc_trade_volume, 8)}</td>
             <td class="num">${c.unit ?? unit}</td>
@@ -2200,24 +2382,253 @@
       }
     }
 
-    /** 호가 테이블 스크롤을 `data-ob-anchor-row` 행이 세로 중앙에 오도록 맞춤 */
+    /**
+     * 호가 테이블 스크롤 — 앵커 행이 **보이는 영역의 세로 중앙**에 오도록 맞춤.
+     * `thead`가 sticky라 전체 박스의 기하학적 1/2 지점에 맞추면 행이 화면 상단(~10%)에 가깝게 보임.
+     * 헤더 높이를 빼고 그 아래 구간의 중앙을 기준으로 맞춘다.
+     */
     function scrollOrderbookToAnchorRow(scrollEl) {
       if (!scrollEl) return;
       const idx = parseInt(scrollEl.dataset.obAnchorRow, 10);
       if (!Number.isFinite(idx) || idx < 0) return;
       const tbody = scrollEl.querySelector("tbody");
-      if (!tbody) return;
-      const row = tbody.children[idx];
+      const thead = scrollEl.querySelector("thead");
+      const row = tbody?.children[idx];
       if (!row) return;
-      const rowRect = row.getBoundingClientRect();
+
       const scRect = scrollEl.getBoundingClientRect();
-      const nextTop =
-        scrollEl.scrollTop +
-        (rowRect.top - scRect.top) -
-        scrollEl.clientHeight / 2 +
-        rowRect.height / 2;
-      const maxScroll = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+      const rowRect = row.getBoundingClientRect();
+      const theadH = thead ? thead.getBoundingClientRect().height : 0;
+      const clientH = scrollEl.clientHeight;
+
+      const rowCenterInViewport =
+        rowRect.top + rowRect.height / 2 - scRect.top;
+
+      const targetCenterInViewport =
+        theadH + (clientH - theadH) / 2;
+
+      const delta = rowCenterInViewport - targetCenterInViewport;
+      const nextTop = scrollEl.scrollTop + delta;
+      const maxScroll = Math.max(0, scrollEl.scrollHeight - clientH);
       scrollEl.scrollTop = Math.max(0, Math.min(nextTop, maxScroll));
+    }
+
+    /**
+     * 오더북 한 건분 뷰 모델. 실시간 패치 시 tbody·meta만 갱신해 `.ob-table-wrap`(스크롤 노드)을 유지한다.
+     * `book` — `{ market, orderbook_units, timestamp, level, total_ask_size, total_bid_size }`
+     */
+    function orderbookViewFromBook(book) {
+      const units = book.orderbook_units || [];
+      const merged = mergeOrderbookByPrice(units);
+
+      let bestBid = -Infinity;
+      let bestAsk = Infinity;
+      for (const u of units) {
+        const bp = asNum(u.bid_price);
+        const ap = asNum(u.ask_price);
+        if (Number.isFinite(bp)) bestBid = Math.max(bestBid, bp);
+        if (Number.isFinite(ap)) bestAsk = Math.min(bestAsk, ap);
+      }
+
+      let anchorRowIdx = merged.length
+        ? Math.floor((merged.length - 1) / 2)
+        : 0;
+      if (
+        merged.length > 0 &&
+        Number.isFinite(bestBid) &&
+        Number.isFinite(bestAsk) &&
+        bestAsk > bestBid
+      ) {
+        const midPrice = (bestBid + bestAsk) / 2;
+        let bestI = 0;
+        let bestDist = Infinity;
+        merged.forEach((r, i) => {
+          const d = Math.abs(r.price - midPrice);
+          if (d < bestDist) {
+            bestDist = d;
+            bestI = i;
+          }
+        });
+        anchorRowIdx = bestI;
+      }
+
+      const tbodyRowsHtml = merged
+        .map((row) => {
+          const p = row.price;
+          const isSpread =
+            Number.isFinite(bestBid) &&
+            Number.isFinite(bestAsk) &&
+            p < bestAsk &&
+            p > bestBid;
+          const rowCls = isSpread ? ' class="ob-spread-gap"' : "";
+          const bidCell =
+            row.bidSize != null
+              ? `<td class="num ob-bid-sz">${fmtDec(row.bidSize)}</td>`
+              : `<td class="num ob-bid-sz"></td>`;
+          const askCell =
+            row.askSize != null
+              ? `<td class="num ob-ask-sz">${fmtDec(row.askSize)}</td>`
+              : `<td class="num ob-ask-sz"></td>`;
+          return `<tr${rowCls}>${bidCell}<td class="num ob-price-mid">${fmtKrwPrice(p)}</td>${askCell}</tr>`;
+        })
+        .join("");
+
+      const ts = book.timestamp
+        ? new Date(Number(book.timestamp)).toLocaleString("ko-KR")
+        : "—";
+
+      const spreadTxt =
+        Number.isFinite(bestBid) &&
+        Number.isFinite(bestAsk) &&
+        bestAsk > bestBid
+          ? ` 스프레드 <strong>${fmtKrwPrice(bestAsk - bestBid)}</strong> (매도 최저 ${fmtKrwPrice(bestAsk)} − 매수 최고 ${fmtKrwPrice(bestBid)})`
+          : "";
+
+      const mkt = escapeHtml(book.market);
+      const marketKey = String(book.market || "").trim().toUpperCase();
+      const metaParagraphHtml = `<p class="ob-meta">
+                <strong>${mkt}</strong> · 타임스탬프 ${ts}
+                · 호가 단위(level) <strong>${fmtDec(book.level, 0)}</strong>
+                <br />
+                매도 잔량 합계 <strong class="ask-head">${fmtDec(book.total_ask_size)}</strong>
+                · 매수 잔량 합계 <strong class="bid-head">${fmtDec(book.total_bid_size)}</strong>
+                ${spreadTxt}
+              </p>`;
+
+      return {
+        marketKey,
+        metaParagraphHtml,
+        tbodyRowsHtml,
+        anchorRowIdx,
+      };
+    }
+
+    /**
+     * REST·WS 공통: 한 건의 오더북 레코드를 패널 HTML 조각으로 변환.
+     */
+    function buildOrderbookPanelHtml(book) {
+      const v = orderbookViewFromBook(book);
+      return `
+            <div class="ob-book">
+              ${v.metaParagraphHtml}
+              <div class="ob-table-wrap" data-ob-anchor-row="${v.anchorRowIdx}">
+                <table class="ob-table ob-merged">
+                  <thead>
+                    <tr>
+                      <th class="ob-bid-h">매수 잔량</th>
+                      <th class="ob-price-h">호가</th>
+                      <th class="ob-ask-h">매도 잔량</th>
+                    </tr>
+                  </thead>
+                  <tbody>${v.tbodyRowsHtml}</tbody>
+                </table>
+              </div>
+            </div>`;
+    }
+
+    /**
+     * WebSocket 실시간 호가: 스크롤 컨테이너(`.ob-table-wrap`)는 두고 meta·tbody만 교체 — scrollTop 유지.
+     * @returns {boolean} 패치 성공 여부 (실패 시 전체 paint로 폴백)
+     */
+    function patchOrderbookDomInPlace(wrap, book) {
+      if (!wrap) return false;
+      const v = orderbookViewFromBook(book);
+      const obook = wrap.querySelector(".ob-book");
+      const metaOld = obook?.querySelector(".ob-meta");
+      const tbody = obook?.querySelector(".ob-table-wrap tbody");
+      const scrollEl = obook?.querySelector(".ob-table-wrap[data-ob-anchor-row]");
+      if (!obook || !metaOld || !tbody || !scrollEl) return false;
+      const curMk = metaOld
+        .querySelector("strong")
+        ?.textContent?.trim()
+        .toUpperCase();
+      if (!curMk || curMk !== v.marketKey) return false;
+
+      metaOld.outerHTML = v.metaParagraphHtml;
+      tbody.innerHTML = v.tbodyRowsHtml;
+      scrollEl.dataset.obAnchorRow = String(v.anchorRowIdx);
+      syncTickerSidebarLayout();
+      return true;
+    }
+
+    function buildOrderbookPanelsHtmlFromBooks(books) {
+      return books.map((book) => buildOrderbookPanelHtml(book));
+    }
+
+    /**
+     * @param {{ scrollToAnchor?: boolean }} [opts] — `false`면 실시간 갱신: 앵커 대신 스크롤 비율 복원.
+     *   새 DOM은 한두 프레임 안에 scrollHeight가 안정되지 않을 수 있어 여러 rAF로 재적용한다.
+     */
+    function paintOrderbookWrap(wrap, books, opts) {
+      if (!wrap) return;
+      orderbookPaintGeneration += 1;
+      const paintGen = orderbookPaintGeneration;
+      const scrollToAnchor = opts && opts.scrollToAnchor === false ? false : true;
+      let ratioToRestore = null;
+      if (!scrollToAnchor) {
+        const prev = wrap.querySelector(".ob-table-wrap[data-ob-anchor-row]");
+        const fromDom = prev ? orderbookReadScrollRatio(prev) : null;
+        ratioToRestore =
+          fromDom != null ? fromDom : orderbookScrollRatioMemory;
+      }
+      const parts = buildOrderbookPanelsHtmlFromBooks(books);
+      wrap.innerHTML = parts.join("");
+
+      const finishLayout = () => {
+        if (paintGen !== orderbookPaintGeneration) return;
+        syncTickerSidebarLayout();
+      };
+
+      if (scrollToAnchor) {
+        requestAnimationFrame(() => {
+          if (paintGen !== orderbookPaintGeneration) return;
+          const scrollEls = wrap.querySelectorAll(
+            ".ob-table-wrap[data-ob-anchor-row]"
+          );
+          scrollEls.forEach((scrollEl) => scrollOrderbookToAnchorRow(scrollEl));
+          requestAnimationFrame(() => {
+            if (paintGen !== orderbookPaintGeneration) return;
+            scrollEls.forEach((scrollEl) => {
+              scrollOrderbookToAnchorRow(scrollEl);
+              const r = orderbookReadScrollRatio(scrollEl);
+              if (r != null) orderbookScrollRatioMemory = r;
+              orderbookBindScrollMemoryListener(scrollEl);
+            });
+            finishLayout();
+          });
+        });
+        return;
+      }
+
+      if (ratioToRestore == null) {
+        orderbookBindScrollMemoryOnWrap(wrap);
+        requestAnimationFrame(() => {
+          if (paintGen !== orderbookPaintGeneration) return;
+          finishLayout();
+        });
+        return;
+      }
+
+      let frames = 0;
+      const maxFrames = 15;
+      const tick = () => {
+        if (paintGen !== orderbookPaintGeneration) return;
+        wrap.querySelectorAll(".ob-table-wrap[data-ob-anchor-row]").forEach(
+          (scrollEl) => {
+            orderbookApplyScrollRatio(scrollEl, ratioToRestore);
+            const r = orderbookReadScrollRatio(scrollEl);
+            if (r != null) orderbookScrollRatioMemory = r;
+          }
+        );
+        frames++;
+        if (frames < maxFrames) {
+          requestAnimationFrame(tick);
+        } else {
+          orderbookBindScrollMemoryOnWrap(wrap);
+          finishLayout();
+        }
+      };
+      requestAnimationFrame(tick);
     }
 
     async function loadOrderbook() {
@@ -2253,107 +2664,7 @@
           return;
         }
 
-        const parts = data.map((book) => {
-          const units = book.orderbook_units || [];
-          const merged = mergeOrderbookByPrice(units);
-
-          let bestBid = -Infinity;
-          let bestAsk = Infinity;
-          for (const u of units) {
-            const bp = asNum(u.bid_price);
-            const ap = asNum(u.ask_price);
-            if (Number.isFinite(bp)) bestBid = Math.max(bestBid, bp);
-            if (Number.isFinite(ap)) bestAsk = Math.min(bestAsk, ap);
-          }
-
-          let anchorRowIdx = merged.length
-            ? Math.floor((merged.length - 1) / 2)
-            : 0;
-          if (
-            merged.length > 0 &&
-            Number.isFinite(bestBid) &&
-            Number.isFinite(bestAsk) &&
-            bestAsk > bestBid
-          ) {
-            const midPrice = (bestBid + bestAsk) / 2;
-            let bestI = 0;
-            let bestDist = Infinity;
-            merged.forEach((r, i) => {
-              const d = Math.abs(r.price - midPrice);
-              if (d < bestDist) {
-                bestDist = d;
-                bestI = i;
-              }
-            });
-            anchorRowIdx = bestI;
-          }
-
-          const rows = merged
-            .map((row) => {
-              const p = row.price;
-              const isSpread =
-                Number.isFinite(bestBid) &&
-                Number.isFinite(bestAsk) &&
-                p < bestAsk &&
-                p > bestBid;
-              const rowCls = isSpread ? ' class="ob-spread-gap"' : "";
-              const bidCell =
-                row.bidSize != null
-                  ? `<td class="num ob-bid-sz">${fmtDec(row.bidSize)}</td>`
-                  : `<td class="num ob-bid-sz"></td>`;
-              const askCell =
-                row.askSize != null
-                  ? `<td class="num ob-ask-sz">${fmtDec(row.askSize)}</td>`
-                  : `<td class="num ob-ask-sz"></td>`;
-              return `<tr${rowCls}>${bidCell}<td class="num ob-price-mid">${fmtKrw(p)}</td>${askCell}</tr>`;
-            })
-            .join("");
-
-          const ts = book.timestamp
-            ? new Date(Number(book.timestamp)).toLocaleString("ko-KR")
-            : "—";
-
-          const spreadTxt =
-            Number.isFinite(bestBid) &&
-            Number.isFinite(bestAsk) &&
-            bestAsk > bestBid
-              ? ` 스프레드 <strong>${fmtKrw(bestAsk - bestBid)}</strong> (매도 최저 ${fmtKrw(bestAsk)} − 매수 최고 ${fmtKrw(bestBid)})`
-              : "";
-
-          return `
-            <div class="ob-book">
-              <p class="ob-meta">
-                <strong>${book.market}</strong> · 타임스탬프 ${ts}
-                · 호가 단위(level) <strong>${fmtDec(book.level, 0)}</strong>
-                <br />
-                매도 잔량 합계 <strong class="ask-head">${fmtDec(book.total_ask_size)}</strong>
-                · 매수 잔량 합계 <strong class="bid-head">${fmtDec(book.total_bid_size)}</strong>
-                ${spreadTxt}
-              </p>
-              <div class="ob-table-wrap" data-ob-anchor-row="${anchorRowIdx}">
-                <table class="ob-table ob-merged">
-                  <thead>
-                    <tr>
-                      <th class="ob-bid-h">매수 잔량</th>
-                      <th class="ob-price-h">호가</th>
-                      <th class="ob-ask-h">매도 잔량</th>
-                    </tr>
-                  </thead>
-                  <tbody>${rows}</tbody>
-                </table>
-              </div>
-            </div>`;
-        });
-
-        wrap.innerHTML = parts.join("");
-        requestAnimationFrame(() => {
-          wrap.querySelectorAll(".ob-table-wrap[data-ob-anchor-row]").forEach(
-            (scrollEl) => {
-              scrollOrderbookToAnchorRow(scrollEl);
-            }
-          );
-          syncTickerSidebarLayout();
-        });
+        paintOrderbookWrap(wrap, data, { scrollToAnchor: true });
       } catch (e) {
         status.textContent = "오류: " + e.message;
         status.classList.add("error");
@@ -2381,6 +2692,7 @@
       highlightTickerRow(m);
       updateSymbolStripFromTicker();
       loadOrderbook();
+      connectUpbitOrderbookWebSocket();
       loadMinuteCandles();
       orderUpdateLabelsAndSubmit();
       orderRefreshAvailable();

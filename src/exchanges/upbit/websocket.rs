@@ -9,11 +9,8 @@ use uuid::Uuid;
 
 /// 업비트 웹소켓 정의
 
-// 업비트 시세 웹소켓 URL
+/// 공개 WS — 티커·호가(`orderbook`)·체결 등. 비공개 `.../v1/private` 는 JWT 필요.
 const UPBIT_PUBLIC_WEBSOCKET_URL: &str = "wss://api.upbit.com/websocket/v1";
-
-// 자산 및 주문 웹소켓 URL
-const UPBIT_PRIVATE_WEBSOCKET_URL: &str = "wss://api.upbit.com/websocket/v1/private";
 
 const PING_INTERVAL: u64 = 30;
 
@@ -77,21 +74,21 @@ async fn connect_quote_websocket(
                         }
                     }
                     Some(Ok(Message::Pong(_))) => {
-                        println!("퐁 수신");
+                        println!("시세 > 퐁 수신");
                     }
                     Some(Ok(Message::Close(_frame))) => {
-                        println!("업비트 웹소켓 커넥션 종료 신호");
+                        println!("시세 > 업비트 웹소켓 커넥션 종료 신호");
                         break;
                     }
                     Some(Err(e)) => {
-                        println!("업비트 웹소켓 에러. {}", e);
+                        println!("시세 > 업비트 웹소켓 에러. {}", e);
                         break;
                     }
                     Some(Ok(_)) => {}
                 }
             }
             _ = ping_interval.tick() => {
-                print!("핑 전송");
+                print!("시세 > 핑 전송");
                 write.send(Message::Ping(vec![])).await?;
             }
         }
@@ -100,12 +97,12 @@ async fn connect_quote_websocket(
     Ok(())
 }
 
-/// 오더북 WebSocket (구독·수신 파싱은 추후 `Sender` 타입 분리 후 구현)
+/// 오더북 WebSocket (공개 엔드포인트 — private URL은 JWT 없으면 401)
 async fn connect_orderbook_websocket(
     pairs: Vec<String>,
     sender: Sender<Box<dyn UpbitWsEvent>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let (ws_stream, _) = connect_async(UPBIT_PRIVATE_WEBSOCKET_URL).await?;
+    let (ws_stream, _) = connect_async(UPBIT_PUBLIC_WEBSOCKET_URL).await?;
 
     let (mut write, mut read) = ws_stream.split();
 
@@ -148,21 +145,21 @@ async fn connect_orderbook_websocket(
                         }
                     }
                     Some(Ok(Message::Pong(_))) => {
-                        println!("퐁 수신");
+                        println!("오더북 > 퐁 수신");
                     }
                     Some(Ok(Message::Close(_frame))) => {
-                        println!("업비트 웹소켓 커넥션 종료 신호");
+                        println!("오더북 > 업비트 웹소켓 커넥션 종료 신호");
                         break;
                     }
                     Some(Err(e)) => {
-                        println!("업비트 웹소켓 에러. {}", e);
+                        println!("오더북 > 업비트 웹소켓 에러. {}", e);
                         break;
                     }
                     Some(Ok(_)) => {}
                 }
             }
             _ = ping_interval.tick() => {
-                print!("핑 전송");
+                print!("오더북 > 핑 전송");
                 write.send(Message::Ping(vec![])).await?;
             }
         }
