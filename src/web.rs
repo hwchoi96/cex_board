@@ -213,6 +213,7 @@ async fn ws_upbit_ticker(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     ws.on_upgrade(move |socket| {
+        // 시세 정보 웹소켓은 main 에서 만든 브로드캐스팅 채널을 그대로 붙여서 사용한다.
         let rx = state.ticker_broadcast.subscribe();
         relay_upbit_ws_events(socket, rx)
     })
@@ -231,6 +232,7 @@ async fn ws_upbit_orderbook(
         )
             .into_response();
     }
+    // 오더북의 경우에는, 클라이언트가 요청한 마켓 정보에 대해서만 필터링이 필요하므로, 연결마다 신규 세션을 만들어서 제공한다.
     ws.on_upgrade(move |socket| handle_upbit_orderbook_ws_session(socket, pairs))
 }
 

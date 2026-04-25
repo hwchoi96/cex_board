@@ -88,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         upbit.secret_key.as_ref().map(String::len),
     );
 
+    // 티커 정보는 클라이언트와 관계 없이 같은 정보를 반환하면 되므로, 브로드캐스팅 채널을 만들어 웹소켓 요청이 붙을 때마다 동일한 정보를 브로드캐스팅 한다.
     let (ticker_mpsc_tx, mut ticker_mpsc_rx) = mpsc::channel::<Box<dyn UpbitWsEvent>>(512);
     let (ticker_broadcast, _) = broadcast::channel::<std::sync::Arc<dyn UpbitWsEvent>>(1024);
 
@@ -127,6 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ticker_broadcast,
     });
 
+    // 클라이언트 <-> 서버 간 웹소켓 TCP 리스너 오픈.
     let addr = SocketAddr::from(([127, 0, 0, 1], HTTP_PORT));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     eprintln!("CEX Board — http://{}", addr);
